@@ -1,0 +1,112 @@
+@page "/notifications"
+@inject IMediator Mediator
+@inject NavigationManager Navigation
+
+<PageTitle>Notification Center — OpsDesk</PageTitle>
+
+<MudStack Spacing="5">
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="flex-wrap gap-3">
+        <div>
+            <MudText Typo="Typo.h4">Notification Center</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                Real-time SLA warnings, triage assignments, and collaboration updates.
+            </MudText>
+        </div>
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="MarkAllRead">
+            Mark All as Read
+        </MudButton>
+    </MudStack>
+
+    <MudGrid Spacing="4">
+        <MudItem xs="12" md="8">
+            <MudStack Spacing="3">
+                @foreach (var alert in _alerts)
+                {
+                    <MudPaper Class="@(alert.IsRead ? "pa-4 ops-card" : "pa-4 ops-selected-card")" Elevation="0">
+                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start">
+                            <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Start">
+                                <MudIcon Icon="@alert.Icon" Color="alert.Color" Class="mt-1" />
+                                <div>
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                        <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">@alert.Title</MudText>
+                                        <MudChip T="string" Size="Size.Small" Class="ops-mono" Variant="Variant.Outlined" Color="Color.Primary">
+                                            @alert.TicketId
+                                        </MudChip>
+                                    </MudStack>
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1">@alert.Message</MudText>
+                                </div>
+                            </MudStack>
+                            <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary"
+                                       OnClick="@(() => Navigation.NavigateTo($"/tickets/{alert.TicketId}"))">
+                                Open
+                            </MudButton>
+                        </MudStack>
+                    </MudPaper>
+                }
+            </MudStack>
+        </MudItem>
+
+        <MudItem xs="12" md="4">
+            <MudCard Class="ops-card" Elevation="0">
+                <MudCardContent>
+                    <MudText Typo="Typo.h6" Class="mb-3">Alert Preferences</MudText>
+                    <MudStack Spacing="2">
+                        <MudSwitch T="bool" @bind-Value="_slaAlerts" Label="In-App SLA Breach Alerts" Color="Color.Primary" />
+                        <MudSwitch T="bool" @bind-Value="_assignAlerts" Label="Assignment Notifications" Color="Color.Primary" />
+                        <MudSwitch T="bool" @bind-Value="_mentionAlerts" Label="Direct Mentions" Color="Color.Primary" />
+                        <MudSwitch T="bool" @bind-Value="_digestAlerts" Label="Daily Operations Digest" Color="Color.Primary" />
+                    </MudStack>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+</MudStack>
+
+@code {
+    private bool _slaAlerts = true;
+    private bool _assignAlerts = true;
+    private bool _mentionAlerts = true;
+    private bool _digestAlerts = false;
+    private List<AlertItem> _alerts = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var tickets = (await Mediator.Send(new GetTicketsQuery(PageSize: 10))).Items;
+        foreach (var t in tickets)
+        {
+            if (t.IsOverdue || t.IsAtRisk)
+            {
+                _alerts.Add(new AlertItem(
+                    t.Id,
+                    "SLA Threshold Alert",
+                    $"{t.Title} — {UiHelpers.FormatTimeRemaining(t.TatDueDate, t.Status)}.",
+                    Icons.Material.Filled.WarningAmber,
+                    Color.Warning));
+            }
+            else if (t.Status == "Open" && string.IsNullOrWhiteSpace(t.AssignedSpecialist))
+            {
+                _alerts.Add(new AlertItem(
+                    t.Id,
+                    "Pending Triage Routing",
+                    $"{t.Title} ({t.ServiceStream}) is awaiting specialist assignment.",
+                    Icons.Material.Filled.Inbox,
+                    Color.Info));
+            }
+        }
+    }
+
+    private void MarkAllRead()
+    {
+        foreach (var a in _alerts) a.IsRead = true;
+    }
+
+    private sealed class AlertItem(string ticketId, string title, string message, string icon, Color color)
+    {
+        public string TicketId { get; } = ticketId;
+        public string Title { get; } = title;
+        public string Message { get; } = message;
+        public string Icon { get; } = icon;
+        public Color Color { get; } = color;
+        public bool IsRead { get; set; }
+    }
+}

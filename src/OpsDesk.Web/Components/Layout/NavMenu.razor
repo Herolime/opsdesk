@@ -1,0 +1,75 @@
+@implements IDisposable
+@inject RoleState RoleState
+
+<div class="px-4 pt-4 pb-2">
+    <MudButton Variant="Variant.Filled"
+               Color="Color.Primary"
+               FullWidth="true"
+               StartIcon="@Icons.Material.Filled.Add"
+               Href="/submit"
+               Style="color: #042F2E; font-weight: 700;">
+        New Service Request
+    </MudButton>
+</div>
+
+<MudNavMenu Class="py-2" Rounded="true" Margin="Margin.Dense" Color="Color.Primary">
+    <div class="px-4 py-2">
+        <MudText Typo="Typo.caption" Style="color: #64748B; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em;">
+            Operations
+        </MudText>
+    </div>
+
+    <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">
+        Overview
+    </MudNavLink>
+
+    <MudNavLink Href="/my-requests" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.PersonOutline">
+        My Requests
+    </MudNavLink>
+
+    <MudNavLink Href="/submit" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.PostAdd">
+        Submit Request
+    </MudNavLink>
+
+    <MudNavLink Href="/triage" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.FilterList">
+        Triage Queue
+    </MudNavLink>
+
+    <MudNavLink Href="/tickets" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.ListAlt">
+        All Tickets
+    </MudNavLink>
+
+    <MudDivider Class="my-3" />
+
+    <div class="px-4 py-2">
+        <MudText Typo="Typo.caption" Style="color: #64748B; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em;">
+            Governance
+        </MudText>
+    </div>
+
+    <MudNavLink Href="/reports" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.BarChart">
+        Reports &amp; SLA
+    </MudNavLink>
+
+    <MudNavLink Href="/notifications" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.NotificationsNone">
+        Notification Center
+    </MudNavLink>
+
+    <MudNavLink Href="/admin/roles" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.AdminPanelSettings">
+        Admin &amp; Roles
+    </MudNavLink>
+</MudNavMenu>
+
+<MudSpacer />
+
+<div class="pa-4 mt-auto" style="border-top: 1px solid #334155;">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+        <MudIcon Icon="@Icons.Material.Filled.Circle" Color="Color.Success" Size="Size.Small" Style="font-size: 10px;" />
+        <MudText Typo="Typo.caption" Color="Color.Secondary">SQLite Store • SLA Engine Live</MudText>
+    </MudStack>
+</div>
+
+@code {
+    protected override void OnInitialized() => RoleState.OnChange += StateHasChanged;
+    public void Dispose() => RoleState.OnChange -= StateHasChanged;
+}

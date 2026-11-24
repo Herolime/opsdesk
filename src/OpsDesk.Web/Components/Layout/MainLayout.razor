@@ -1,0 +1,121 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject RoleState RoleState
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<MudThemeProvider Theme="_theme" IsDarkMode="true" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="0" Style="border-bottom: 1px solid #334155;">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="ToggleDrawer" />
+
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="ml-1">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <rect width="28" height="28" rx="7" fill="#10B981" fill-opacity="0.16" stroke="#10B981" stroke-width="1.5" />
+                <path d="M8 14.5L12 18.5L20 10" stroke="#10B981" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <MudText Typo="Typo.h6" Style="font-weight: 700; letter-spacing: -0.02em;">OpsDesk</MudText>
+        </MudStack>
+
+        <MudSpacer />
+
+        <MudTextField T="string"
+                      @bind-Value="_searchText"
+                      Placeholder="Search tickets, IDs, or assignees..."
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search"
+                      Variant="Variant.Outlined"
+                      Margin="Margin.Dense"
+                      OnKeyDown="HandleSearchKeyDown"
+                      Class="mx-4 d-none d-md-flex ops-search-input"
+                      Style="max-width: 320px; background-color: #0F172A;" />
+
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mr-3 px-2 py-1"
+                  Style="background: #1E293B; border-radius: 8px; border: 1px solid #334155;">
+            <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined" Style="font-size: 0.65rem; height: 20px;">
+                PERSONA
+            </MudChip>
+            <MudSelect T="WorkspaceRole"
+                       Value="RoleState.CurrentRole"
+                       ValueChanged="OnRoleChanged"
+                       Dense="true"
+                       Margin="Margin.Dense"
+                       Variant="Variant.Text"
+                       Style="min-width: 165px; font-size: 0.8125rem;">
+                <MudSelectItem T="WorkspaceRole" Value="WorkspaceRole.OperationsLead">Operations Lead</MudSelectItem>
+                <MudSelectItem T="WorkspaceRole" Value="WorkspaceRole.TriageLead">Triage Lead</MudSelectItem>
+                <MudSelectItem T="WorkspaceRole" Value="WorkspaceRole.Specialist">Specialist</MudSelectItem>
+                <MudSelectItem T="WorkspaceRole" Value="WorkspaceRole.Requester">Requester</MudSelectItem>
+                <MudSelectItem T="WorkspaceRole" Value="WorkspaceRole.Admin">System Admin</MudSelectItem>
+            </MudSelect>
+        </MudStack>
+
+        <MudBadge Content="5" Color="Color.Error" Overlap="true" Class="mr-2">
+            <MudIconButton Icon="@Icons.Material.Filled.Notifications" Color="Color.Inherit" Href="/notifications" />
+        </MudBadge>
+
+        <MudMenu AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Dense="true">
+            <ActivatorContent>
+                <MudButton Variant="Variant.Text" Color="Color.Inherit" Class="px-2">
+                    <MudAvatar Color="Color.Primary" Size="Size.Small" Class="mr-2" Style="color: #042F2E; font-weight: 700;">
+                        @RoleState.CurrentInitials
+                    </MudAvatar>
+                    <div class="d-none d-sm-flex flex-column text-left">
+                        <MudText Typo="Typo.body2" Style="font-weight: 600;">@RoleState.CurrentDisplayName</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Style="line-height: 1.1;">@RoleState.CurrentRoleName</MudText>
+                    </div>
+                    <MudIcon Icon="@Icons.Material.Filled.ArrowDropDown" Size="Size.Small" Class="ml-1" />
+                </MudButton>
+            </ActivatorContent>
+            <ChildContent>
+                <div class="px-4 py-2">
+                    <MudText Typo="Typo.subtitle2">@RoleState.CurrentDisplayName</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@RoleState.CurrentEmail</MudText>
+                </div>
+                <MudDivider />
+                <MudMenuItem Icon="@Icons.Material.Filled.Person" Href="/my-requests">My Requests</MudMenuItem>
+                <MudMenuItem Icon="@Icons.Material.Filled.Notifications" Href="/notifications">Notification Center</MudMenuItem>
+                <MudMenuItem Icon="@Icons.Material.Filled.AdminPanelSettings" Href="/admin/roles">Admin &amp; Roles</MudMenuItem>
+            </ChildContent>
+        </MudMenu>
+    </MudAppBar>
+
+    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="0" Variant="DrawerVariant.Responsive"
+               Style="border-right: 1px solid #334155;">
+        <NavMenu />
+    </MudDrawer>
+
+    <MudMainContent Class="pt-20 pb-10 px-4 px-md-8" Style="background-color: #0F172A; min-height: 100vh;">
+        @Body
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private bool _drawerOpen = true;
+    private string? _searchText;
+    private readonly MudTheme _theme = OpsDeskTheme.CreateTheme();
+
+    protected override void OnInitialized() => RoleState.OnChange += StateHasChanged;
+
+    private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+
+    private void OnRoleChanged(WorkspaceRole newRole)
+    {
+        RoleState.SetRole(newRole);
+        Snackbar.Add($"Switched active persona to {RoleState.CurrentDisplayName} ({RoleState.CurrentRoleName})", Severity.Info);
+    }
+
+    private void HandleSearchKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_searchText))
+        {
+            Navigation.NavigateTo($"/tickets?search={Uri.EscapeDataString(_searchText.Trim())}");
+        }
+    }
+
+    public void Dispose() => RoleState.OnChange -= StateHasChanged;
+}

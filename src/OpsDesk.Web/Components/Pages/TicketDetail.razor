@@ -1,0 +1,310 @@
+@page "/tickets/{Id}"
+@inject IMediator Mediator
+@inject RoleState RoleState
+@inject ISnackbar Snackbar
+
+<PageTitle>@Id — OpsDesk Workspace</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+}
+else if (_ticket is null)
+{
+    <MudAlert Severity="Severity.Error" Variant="Variant.Outlined">Ticket <strong>@Id</strong> was not found.</MudAlert>
+}
+else
+{
+    <MudStack Spacing="5">
+        <!-- Hero Header -->
+        <MudPaper Class="pa-5 ops-card" Elevation="0">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start" Class="flex-wrap gap-3">
+                <div>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-1">
+                        <MudText Typo="Typo.subtitle1" Class="ops-mono" Color="Color.Primary" Style="font-weight: 700;">@_ticket.Id</MudText>
+                        <MudChip T="string" Size="Size.Small" Color="UiHelpers.StatusColor(_ticket.Status)" Variant="Variant.Filled">
+                            @UiHelpers.StatusLabel(_ticket.Status)
+                        </MudChip>
+                        <MudChip T="string" Size="Size.Small" Color="UiHelpers.PriorityColor(_ticket.Priority)" Variant="Variant.Outlined">
+                            @_ticket.Priority
+                        </MudChip>
+                    </MudStack>
+                    <MudText Typo="Typo.h5">@_ticket.Title</MudText>
+                </div>
+
+                <MudStack Row="true" Spacing="2">
+                    @if (_ticket.Status != "Resolved")
+                    {
+                        <MudButton Variant="Variant.Outlined" Color="Color.Warning" OnClick="@(() => UpdateStatusAsync(TicketStatus.PendingReview))">
+                            Submit for Review
+                        </MudButton>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => UpdateStatusAsync(TicketStatus.Resolved))"
+                                   Style="color: #042F2E; font-weight: 700;">
+                            Resolve Ticket
+                        </MudButton>
+                    }
+                    else
+                    {
+                        <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="@(() => UpdateStatusAsync(TicketStatus.InProgress))">
+                            Reopen Ticket
+                        </MudButton>
+                    }
+                </MudStack>
+            </MudStack>
+        </MudPaper>
+
+        <!-- Two-Column Workspace -->
+        <MudGrid Spacing="4">
+            <!-- Left Main Collaboration Area -->
+            <MudItem xs="12" md="8">
+                <MudPaper Class="pa-5 ops-card" Elevation="0">
+                    <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" TabPanelsClass="pt-4">
+                        <MudTabPanel Text="@($"Messages ({_ticket.Messages.Count})")" Icon="@Icons.Material.Filled.ChatBubbleOutline">
+                            <MudStack Spacing="3" Class="mb-5">
+                                @if (_ticket.Messages.Count == 0)
+                                {
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary">No messages yet. Start the collaboration thread below.</MudText>
+                                }
+                                @foreach (var msg in _ticket.Messages)
+                                {
+                                    <MudPaper Class="pa-4" Elevation="0" Style="background: #0F172A; border: 1px solid #334155; border-radius: 8px;">
+                                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-1">
+                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                                <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">@msg.SenderName</MudText>
+                                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Secondary">@msg.SenderRole</MudChip>
+                                            </MudStack>
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">@msg.CreatedDate.ToString("MMM dd, HH:mm")</MudText>
+                                        </MudStack>
+                                        <MudText Typo="Typo.body2">@msg.MessageText</MudText>
+                                    </MudPaper>
+                                }
+                            </MudStack>
+
+                            <MudTextField T="string" @bind-Value="_newMessage" Label="Public Reply" Lines="3" Variant="Variant.Outlined"
+                                          Placeholder="Write a response visible to the requester and operations team..." />
+                            <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-3">
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SendMessageAsync"
+                                           Disabled="string.IsNullOrWhiteSpace(_newMessage)" Style="color: #042F2E; font-weight: 700;">
+                                    Send Message
+                                </MudButton>
+                            </MudStack>
+                        </MudTabPanel>
+
+                        <MudTabPanel Text="Technical Review" Icon="@Icons.Material.Filled.Engineering">
+                            <MudStack Spacing="3">
+                                <MudTextField T="string" @bind-Value="_archRef" Label="Architecture / RFC Reference" Variant="Variant.Outlined" />
+                                <MudTextField T="string" @bind-Value="_techAnalysis" Label="Technical Analysis" Lines="3" Variant="Variant.Outlined" />
+                                <MudTextField T="string" @bind-Value="_opRisks" Label="Operational Risks" Lines="2" Variant="Variant.Outlined" />
+                                <MudTextField T="string" @bind-Value="_resSummary" Label="Resolution Summary" Lines="2" Variant="Variant.Outlined" />
+                                <MudStack Row="true" Justify="Justify.FlexEnd">
+                                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveReviewAsync"
+                                               Style="color: #042F2E; font-weight: 700;">
+                                        Save Technical Review
+                                    </MudButton>
+                                </MudStack>
+                            </MudStack>
+                        </MudTabPanel>
+
+                        <MudTabPanel Text="@($"Internal Notes ({_ticket.Notes.Count})")" Icon="@Icons.Material.Filled.Lock">
+                            <MudStack Spacing="3" Class="mb-4">
+                                @foreach (var note in _ticket.Notes)
+                                {
+                                    <MudPaper Class="pa-4" Elevation="0" Style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 8px;">
+                                        <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mb-1">
+                                            <MudText Typo="Typo.subtitle2" Color="Color.Warning">@note.Author (Internal)</MudText>
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">@note.CreatedDate.ToString("MMM dd, HH:mm")</MudText>
+                                        </MudStack>
+                                        <MudText Typo="Typo.body2">@note.NoteText</MudText>
+                                    </MudPaper>
+                                }
+                            </MudStack>
+
+                            <MudTextField T="string" @bind-Value="_newNote" Label="Add Internal Engineering Note" Lines="2" Variant="Variant.Outlined" />
+                            <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-3">
+                                <MudButton Variant="Variant.Outlined" Color="Color.Warning" OnClick="AddNoteAsync"
+                                           Disabled="string.IsNullOrWhiteSpace(_newNote)">
+                                    Save Internal Note
+                                </MudButton>
+                            </MudStack>
+                        </MudTabPanel>
+
+                        <MudTabPanel Text="Escalation" Icon="@Icons.Material.Filled.TrendingUp">
+                            <MudStack Spacing="3">
+                                @if (_ticket.Escalation is not null)
+                                {
+                                    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
+                                        Escalated to <strong>@_ticket.Escalation.EscalatedTeam</strong> on @_ticket.Escalation.EscalatedDate.ToString("MMM dd, yyyy"):
+                                        @_ticket.Escalation.EscalationReason
+                                    </MudAlert>
+                                }
+                                <MudTextField T="string" @bind-Value="_escalatedTeam" Label="Target Escalation Team"
+                                              Placeholder="e.g., Security Incident Response, Database Reliability" Variant="Variant.Outlined" />
+                                <MudTextField T="string" @bind-Value="_escalationReason" Label="Escalation Justification" Lines="2" Variant="Variant.Outlined" />
+                                <MudStack Row="true" Justify="Justify.FlexEnd">
+                                    <MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="EscalateAsync"
+                                               Disabled="@(string.IsNullOrWhiteSpace(_escalatedTeam) || _ticket.Status == "Resolved")">
+                                        Escalate Ticket
+                                    </MudButton>
+                                </MudStack>
+                            </MudStack>
+                        </MudTabPanel>
+                    </MudTabs>
+                </MudPaper>
+            </MudItem>
+
+            <!-- Right Metadata & SLA Sidebar -->
+            <MudItem xs="12" md="4">
+                <MudStack Spacing="4">
+                    <MudCard Class="ops-card" Elevation="0">
+                        <MudCardContent>
+                            @{ var sla = UiHelpers.SlaHealth(_ticket); }
+                            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-2">
+                                <MudText Typo="Typo.h6">SLA Countdown</MudText>
+                                <MudChip T="string" Size="Size.Small" Color="sla.Color" Variant="Variant.Filled">@sla.Label</MudChip>
+                            </MudStack>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
+                                @UiHelpers.FormatTimeRemaining(_ticket.TatDueDate, _ticket.Status)
+                            </MudText>
+                            <MudProgressLinear Color="sla.Color" Value="@(_ticket.Status == "Resolved" ? 100 : _ticket.IsOverdue ? 100 : 65)" Rounded="true" Size="Size.Medium" />
+                            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2 d-block">
+                                Target Due: @_ticket.TatDueDate.ToString("MMM dd, yyyy HH:mm") UTC
+                            </MudText>
+                        </MudCardContent>
+                    </MudCard>
+
+                    <MudCard Class="ops-card" Elevation="0">
+                        <MudCardContent>
+                            <MudText Typo="Typo.h6" Class="mb-3">Ticket Properties</MudText>
+                            <MudStack Spacing="2">
+                                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Service Stream</MudText>
+                                    <MudText Typo="Typo.body2">@_ticket.ServiceStream</MudText>
+                                </MudStack>
+                                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Environment</MudText>
+                                    <MudText Typo="Typo.body2">@_ticket.Environment</MudText>
+                                </MudStack>
+                                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Category</MudText>
+                                    <MudText Typo="Typo.body2">@_ticket.Category</MudText>
+                                </MudStack>
+                                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Requester</MudText>
+                                    <MudText Typo="Typo.body2">@_ticket.RequesterName</MudText>
+                                </MudStack>
+                                <MudDivider Class="my-1" />
+                                <MudSelect T="string" Value="@(_ticket.AssignedSpecialist ?? "")" ValueChanged="ReassignAsync"
+                                           Label="Assigned Specialist" Variant="Variant.Outlined" Margin="Margin.Dense">
+                                    <MudSelectItem Value="@("Maya Lin")">Maya Lin</MudSelectItem>
+                                    <MudSelectItem Value="@("Devon Brooks")">Devon Brooks</MudSelectItem>
+                                    <MudSelectItem Value="@("Samira Patel")">Samira Patel</MudSelectItem>
+                                    <MudSelectItem Value="@("Lucas Vance")">Lucas Vance</MudSelectItem>
+                                </MudSelect>
+                            </MudStack>
+                        </MudCardContent>
+                    </MudCard>
+
+                    <MudCard Class="ops-card" Elevation="0">
+                        <MudCardContent>
+                            <MudText Typo="Typo.h6" Class="mb-2">Request Details</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">@_ticket.Description</MudText>
+                            @if (!string.IsNullOrWhiteSpace(_ticket.TechnicalContext))
+                            {
+                                <MudText Typo="Typo.caption" Class="ops-mono mt-3 d-block" Color="Color.Secondary">
+                                    @_ticket.TechnicalContext
+                                </MudText>
+                            }
+                        </MudCardContent>
+                    </MudCard>
+                </MudStack>
+            </MudItem>
+        </MudGrid>
+    </MudStack>
+}
+
+@code {
+    [Parameter] public string Id { get; set; } = default!;
+
+    private bool _loading = true;
+    private TicketDetailDto? _ticket;
+    private string? _newMessage;
+    private string? _newNote;
+    private string? _archRef;
+    private string? _techAnalysis;
+    private string? _opRisks;
+    private string? _resSummary;
+    private string? _escalatedTeam;
+    private string? _escalationReason;
+
+    protected override async Task OnParametersSetAsync() => await LoadTicketAsync();
+
+    private async Task LoadTicketAsync()
+    {
+        _loading = true;
+        _ticket = await Mediator.Send(new GetTicketByIdQuery(Id));
+        if (_ticket?.Review is not null)
+        {
+            _archRef = _ticket.Review.ArchitectureReference;
+            _techAnalysis = _ticket.Review.TechnicalAnalysis;
+            _opRisks = _ticket.Review.OperationalRisks;
+            _resSummary = _ticket.Review.ResolutionSummary;
+        }
+        _loading = false;
+    }
+
+    private async Task UpdateStatusAsync(TicketStatus status)
+    {
+        await Mediator.Send(new UpdateTicketStatusCommand(Id, status));
+        Snackbar.Add($"Ticket status updated to {status}.", Severity.Success);
+        await LoadTicketAsync();
+    }
+
+    private async Task ReassignAsync(string specialist)
+    {
+        if (string.IsNullOrWhiteSpace(specialist)) return;
+        await Mediator.Send(new AssignSpecialistCommand(Id, specialist));
+        Snackbar.Add($"Reassigned to {specialist}.", Severity.Info);
+        await LoadTicketAsync();
+    }
+
+    private async Task SendMessageAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newMessage)) return;
+        await Mediator.Send(new AddTicketMessageCommand(Id, RoleState.CurrentDisplayName, RoleState.CurrentRoleName, _newMessage.Trim()));
+        _newMessage = null;
+        await LoadTicketAsync();
+    }
+
+    private async Task AddNoteAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newNote)) return;
+        await Mediator.Send(new AddTicketNoteCommand(Id, RoleState.CurrentDisplayName, _newNote.Trim()));
+        _newNote = null;
+        await LoadTicketAsync();
+    }
+
+    private async Task SaveReviewAsync()
+    {
+        await Mediator.Send(new SaveTechnicalReviewCommand
+        {
+            TicketId = Id,
+            ArchitectureReference = _archRef,
+            TechnicalAnalysis = _techAnalysis,
+            OperationalRisks = _opRisks,
+            ResolutionSummary = _resSummary,
+            ReviewedBy = RoleState.CurrentDisplayName
+        });
+        Snackbar.Add("Technical review saved.", Severity.Success);
+        await LoadTicketAsync();
+    }
+
+    private async Task EscalateAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_escalatedTeam)) return;
+        await Mediator.Send(new EscalateTicketCommand(Id, _escalatedTeam.Trim(), _escalationReason));
+        Snackbar.Add($"Ticket escalated to {_escalatedTeam}.", Severity.Warning);
+        _escalatedTeam = null;
+        _escalationReason = null;
+        await LoadTicketAsync();
+    }
+}

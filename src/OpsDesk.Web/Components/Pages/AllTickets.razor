@@ -1,0 +1,158 @@
+@page "/tickets"
+@inject IMediator Mediator
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>All Tickets Directory — OpsDesk</PageTitle>
+
+<MudStack Spacing="5">
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="flex-wrap gap-3">
+        <div>
+            <MudText Typo="Typo.h4">All Tickets Directory</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                Search, filter, and bulk-manage operational service tickets across all teams.
+            </MudText>
+        </div>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Href="/submit" Style="color: #042F2E; font-weight: 700;">
+            + New Request
+        </MudButton>
+    </MudStack>
+
+    <MudPaper Class="pa-4 ops-card" Elevation="0">
+        <MudGrid Spacing="3" Class="align-center">
+            <MudItem xs="12" md="4">
+                <MudTextField T="string" @bind-Value="_search" Placeholder="Filter by ID, title, or requester..."
+                              Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                              Variant="Variant.Outlined" Margin="Margin.Dense" />
+            </MudItem>
+            <MudItem xs="6" md="2">
+                <MudSelect T="string" @bind-Value="_status" Label="Status" Variant="Variant.Outlined" Margin="Margin.Dense">
+                    <MudSelectItem Value="@("")">All</MudSelectItem>
+                    <MudSelectItem Value="@("Open")">Open</MudSelectItem>
+                    <MudSelectItem Value="@("InProgress")">In Progress</MudSelectItem>
+                    <MudSelectItem Value="@("PendingReview")">Pending Review</MudSelectItem>
+                    <MudSelectItem Value="@("Resolved")">Resolved</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="6" md="2">
+                <MudSelect T="string" @bind-Value="_stream" Label="Service Stream" Variant="Variant.Outlined" Margin="Margin.Dense">
+                    <MudSelectItem Value="@("")">All</MudSelectItem>
+                    <MudSelectItem Value="@("Infrastructure")">Infrastructure</MudSelectItem>
+                    <MudSelectItem Value="@("CloudPlatform")">CloudPlatform</MudSelectItem>
+                    <MudSelectItem Value="@("SecurityOps")">SecurityOps</MudSelectItem>
+                    <MudSelectItem Value="@("DataAnalytics")">DataAnalytics</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="6" md="2">
+                <MudSelect T="string" @bind-Value="_priority" Label="Priority" Variant="Variant.Outlined" Margin="Margin.Dense">
+                    <MudSelectItem Value="@("")">All</MudSelectItem>
+                    <MudSelectItem Value="@("Urgent")">Urgent</MudSelectItem>
+                    <MudSelectItem Value="@("High")">High</MudSelectItem>
+                    <MudSelectItem Value="@("Standard")">Standard</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="6" md="2">
+                <MudStack Row="true" Spacing="1">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadAsync" Style="color: #042F2E; font-weight: 700;">Apply</MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Default" OnClick="ClearAsync">Clear</MudButton>
+                </MudStack>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    @if (_selectedTickets.Count > 0)
+    {
+        <MudPaper Class="pa-3 ops-selected-card" Elevation="0">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                <MudText Typo="Typo.body2"><strong>@_selectedTickets.Count</strong> ticket(s) selected</MudText>
+                <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="BulkResolveAsync" Style="color: #042F2E;">
+                    Mark Selected Resolved
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+    }
+
+    <MudPaper Class="pa-4 ops-card" Elevation="0">
+        <MudTable Items="_tickets" MultiSelection="true" @bind-SelectedItems="_selectedTickets" Hover="true" Dense="true" Elevation="0" Style="background: transparent;">
+            <HeaderContent>
+                <MudTh>Ticket ID</MudTh>
+                <MudTh>Subject</MudTh>
+                <MudTh>Stream</MudTh>
+                <MudTh>Requester</MudTh>
+                <MudTh>Specialist</MudTh>
+                <MudTh>Priority</MudTh>
+                <MudTh>SLA</MudTh>
+                <MudTh>Status</MudTh>
+                <MudTh></MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd><MudText Typo="Typo.body2" Class="ops-mono" Color="Color.Primary">@context.Id</MudText></MudTd>
+                <MudTd>
+                    <MudText Typo="Typo.body2" Style="font-weight: 500;">@context.Title</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@context.Environment • @context.Category</MudText>
+                </MudTd>
+                <MudTd><MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@context.ServiceStream</MudChip></MudTd>
+                <MudTd>@context.RequesterName</MudTd>
+                <MudTd>@(context.AssignedSpecialist ?? "Unassigned")</MudTd>
+                <MudTd><MudChip T="string" Size="Size.Small" Color="UiHelpers.PriorityColor(context.Priority)">@context.Priority</MudChip></MudTd>
+                <MudTd>
+                    @{ var sla = UiHelpers.SlaHealth(context); }
+                    <MudChip T="string" Size="Size.Small" Color="sla.Color" Variant="Variant.Outlined">@sla.Label</MudChip>
+                </MudTd>
+                <MudTd>
+                    <MudChip T="string" Size="Size.Small" Color="UiHelpers.StatusColor(context.Status)" Variant="Variant.Text">
+                        @UiHelpers.StatusLabel(context.Status)
+                    </MudChip>
+                </MudTd>
+                <MudTd>
+                    <MudIconButton Icon="@Icons.Material.Filled.OpenInNew" Size="Size.Small" Color="Color.Primary"
+                                   OnClick="@(() => Navigation.NavigateTo($"/tickets/{context.Id}"))" />
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudPaper>
+</MudStack>
+
+@code {
+    [SupplyParameterFromQuery(Name = "search")] public string? QuerySearch { get; set; }
+
+    private string _search = string.Empty;
+    private string _status = string.Empty;
+    private string _stream = string.Empty;
+    private string _priority = string.Empty;
+    private List<TicketSummaryDto> _tickets = new();
+    private HashSet<TicketSummaryDto> _selectedTickets = new();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(QuerySearch))
+            _search = QuerySearch;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        var res = await Mediator.Send(new GetTicketsQuery(
+            Search: string.IsNullOrWhiteSpace(_search) ? null : _search,
+            Status: string.IsNullOrWhiteSpace(_status) ? null : _status,
+            ServiceStream: string.IsNullOrWhiteSpace(_stream) ? null : _stream,
+            Priority: string.IsNullOrWhiteSpace(_priority) ? null : _priority,
+            PageSize: 100));
+        _tickets = res.Items;
+        _selectedTickets.Clear();
+    }
+
+    private async Task ClearAsync()
+    {
+        _search = _status = _stream = _priority = string.Empty;
+        await LoadAsync();
+    }
+
+    private async Task BulkResolveAsync()
+    {
+        foreach (var t in _selectedTickets.Where(x => x.Status != "Resolved"))
+            await Mediator.Send(new UpdateTicketStatusCommand(t.Id, TicketStatus.Resolved));
+        Snackbar.Add("Selected tickets marked as Resolved.", Severity.Success);
+        await LoadAsync();
+    }
+}

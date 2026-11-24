@@ -1,0 +1,128 @@
+@page "/reports"
+@inject IMediator Mediator
+
+<PageTitle>Reports &amp; SLA Analytics — OpsDesk</PageTitle>
+
+<MudStack Spacing="5">
+    <div>
+        <MudText Typo="Typo.h4">Reports &amp; SLA Analytics</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">
+            Executive SLA adherence, service stream distribution, and specialist throughput metrics.
+        </MudText>
+    </div>
+
+    @if (_summary is not null)
+    {
+        <MudGrid Spacing="4">
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-5 ops-card" Elevation="0">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">SLA COMPLIANCE RATE</MudText>
+                    <MudText Typo="Typo.h3" Color="Color.Success" Class="mt-1">@_summary.OnTimeRate%</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-5 ops-card" Elevation="0">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">TOTAL TICKETS</MudText>
+                    <MudText Typo="Typo.h3" Class="mt-1">@_summary.TotalTickets</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-5 ops-card" Elevation="0">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">RESOLVED</MudText>
+                    <MudText Typo="Typo.h3" Color="Color.Primary" Class="mt-1">@_summary.ResolvedTickets</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-5 ops-card" Elevation="0">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">AT-RISK / OVERDUE</MudText>
+                    <MudText Typo="Typo.h3" Color="Color.Warning" Class="mt-1">@_summary.AtRiskTickets</MudText>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <MudGrid Spacing="4">
+            <MudItem xs="12" md="6">
+                <MudPaper Class="pa-5 ops-card" Elevation="0">
+                    <MudText Typo="Typo.h6" Class="mb-4">Volume by Service Stream</MudText>
+                    @foreach (var row in _summary.ByServiceStream)
+                    {
+                        var pct = _summary.TotalTickets == 0 ? 0 : (double)row.Count / _summary.TotalTickets * 100;
+                        <div class="mb-3">
+                            <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mb-1">
+                                <MudText Typo="Typo.body2">@row.Label</MudText>
+                                <MudText Typo="Typo.body2" Class="ops-mono">@row.Count (@Math.Round(pct, 0)%)</MudText>
+                            </MudStack>
+                            <MudProgressLinear Color="Color.Primary" Value="pct" Rounded="true" Size="Size.Medium" />
+                        </div>
+                    }
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudPaper Class="pa-5 ops-card" Elevation="0">
+                    <MudText Typo="Typo.h6" Class="mb-4">Volume by Lifecycle Status</MudText>
+                    @foreach (var row in _summary.ByStatus)
+                    {
+                        var pct = _summary.TotalTickets == 0 ? 0 : (double)row.Count / _summary.TotalTickets * 100;
+                        <div class="mb-3">
+                            <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mb-1">
+                                <MudText Typo="Typo.body2">@UiHelpers.StatusLabel(row.Label)</MudText>
+                                <MudText Typo="Typo.body2" Class="ops-mono">@row.Count (@Math.Round(pct, 0)%)</MudText>
+                            </MudStack>
+                            <MudProgressLinear Color="UiHelpers.StatusColor(row.Label)" Value="pct" Rounded="true" Size="Size.Medium" />
+                        </div>
+                    }
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudPaper Class="pa-5 ops-card" Elevation="0">
+                    <MudText Typo="Typo.h6" Class="mb-4">Top Request Categories</MudText>
+                    <MudSimpleTable Dense="true" Elevation="0" Style="background: transparent;">
+                        <thead>
+                            <tr><th>Category</th><th>Tickets</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in _summary.ByCategory)
+                            {
+                                <tr>
+                                    <td>@row.Label</td>
+                                    <td class="ops-mono">@row.Count</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudPaper Class="pa-5 ops-card" Elevation="0">
+                    <MudText Typo="Typo.h6" Class="mb-4">Specialist Throughput &amp; SLA Score</MudText>
+                    <MudSimpleTable Dense="true" Elevation="0" Style="background: transparent;">
+                        <thead>
+                            <tr><th>Specialist</th><th>Assigned</th><th>Resolved</th><th>On-Time SLA</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var spec in _summary.BySpecialist)
+                            {
+                                <tr>
+                                    <td>@spec.SpecialistName</td>
+                                    <td class="ops-mono">@spec.AssignedCount</td>
+                                    <td class="ops-mono">@spec.ResolvedCount</td>
+                                    <td><MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Outlined">@spec.OnTimeRate%</MudChip></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    }
+</MudStack>
+
+@code {
+    private ReportSummaryDto? _summary;
+
+    protected override async Task OnInitializedAsync() =>
+        _summary = await Mediator.Send(new GetReportSummaryQuery());
+}

@@ -1,0 +1,190 @@
+@page "/"
+@inject IMediator Mediator
+@inject NavigationManager Navigation
+
+<PageTitle>Operations Overview — OpsDesk</PageTitle>
+
+<MudStack Spacing="6">
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="flex-wrap gap-3">
+        <div>
+            <MudText Typo="Typo.h4">Operations Overview</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                Real-time service request throughput, SLA adherence, and priority watchlist.
+            </MudText>
+        </div>
+        <MudStack Row="true" Spacing="2">
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.BarChart" Href="/reports">
+                SLA Analytics
+            </MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Href="/submit" Style="color: #042F2E; font-weight: 700;">
+                New Service Request
+            </MudButton>
+        </MudStack>
+    </MudStack>
+
+    @if (_loading)
+    {
+        <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+    }
+    else if (_summary is not null)
+    {
+        <!-- KPI Summary Strip -->
+        <MudGrid Spacing="4">
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-5 ops-card" Elevation="0">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">ACTIVE TICKETS</MudText>
+                        <MudIcon Icon="@Icons.Material.Filled.ConfirmationNumber" Color="Color.Primary" Size="Size.Small" />
+                    </MudStack>
+                    <MudText Typo="Typo.h3" Class="mt-2">@(_summary.TotalTickets - _summary.ResolvedTickets)</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Primary" Class="mt-1">@_summary.TotalTickets total tracked</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-5 ops-card" Elevation="0">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">SLA COMPLIANCE</MudText>
+                        <MudIcon Icon="@Icons.Material.Filled.Verified" Color="Color.Success" Size="Size.Small" />
+                    </MudStack>
+                    <MudText Typo="Typo.h3" Class="mt-2">@_summary.OnTimeRate%</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Success" Class="mt-1">Target threshold: 95.0%</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-5 ops-card" Elevation="0">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">PENDING TRIAGE</MudText>
+                        <MudIcon Icon="@Icons.Material.Filled.Inbox" Color="Color.Info" Size="Size.Small" />
+                    </MudStack>
+                    <MudText Typo="Typo.h3" Class="mt-2">@_summary.OpenTickets</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1">Awaiting specialist routing</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-5 ops-card" Elevation="0">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">AT-RISK / BREACHED</MudText>
+                        <MudIcon Icon="@Icons.Material.Filled.WarningAmber" Color="Color.Warning" Size="Size.Small" />
+                    </MudStack>
+                    <MudText Typo="Typo.h3" Class="mt-2" Color="@(_summary.AtRiskTickets > 0 ? Color.Warning : Color.Success)">
+                        @_summary.AtRiskTickets
+                    </MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1">Due within 24h or overdue</MudText>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <!-- Primary Analytics Grid -->
+        <MudGrid Spacing="4">
+            <MudItem xs="12" md="7">
+                <MudPaper Class="pa-5 ops-card" Elevation="0" Style="height: 100%;">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+                        <MudText Typo="Typo.h6">Tickets by Category</MudText>
+                        <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">Live Snapshot</MudChip>
+                    </MudStack>
+                    @foreach (var cat in _summary.ByCategory.Take(6))
+                    {
+                        var pct = _summary.TotalTickets == 0 ? 0 : (double)cat.Count / _summary.TotalTickets * 100;
+                        <div class="mb-3">
+                            <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mb-1">
+                                <MudText Typo="Typo.body2">@cat.Label</MudText>
+                                <MudText Typo="Typo.body2" Class="ops-mono">@cat.Count</MudText>
+                            </MudStack>
+                            <MudProgressLinear Color="Color.Primary" Value="pct" Rounded="true" Size="Size.Medium" />
+                        </div>
+                    }
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" md="5">
+                <MudPaper Class="pa-5 ops-card" Elevation="0" Style="height: 100%;">
+                    <MudText Typo="Typo.h6" Class="mb-4">Workload by Service Stream</MudText>
+                    @foreach (var stream in _summary.ByServiceStream)
+                    {
+                        var pct = _summary.TotalTickets == 0 ? 0 : (double)stream.Count / _summary.TotalTickets * 100;
+                        <div class="mb-4">
+                            <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mb-1">
+                                <MudText Typo="Typo.body2" Style="font-weight: 500;">@stream.Label</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">@stream.Count tickets (@Math.Round(pct, 0)%)</MudText>
+                            </MudStack>
+                            <MudProgressLinear Color="Color.Secondary" Value="pct" Rounded="true" Size="Size.Large" />
+                        </div>
+                    }
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <!-- Priority Watchlist -->
+        <MudPaper Class="pa-5 ops-card" Elevation="0">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+                <div>
+                    <MudText Typo="Typo.h6">Priority &amp; SLA Watchlist</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Active tickets ordered by recent activity</MudText>
+                </div>
+                <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/tickets" EndIcon="@Icons.Material.Filled.ArrowForward">
+                    View All Tickets
+                </MudButton>
+            </MudStack>
+
+            <MudTable Items="_watchlist" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm" Elevation="0" Style="background: transparent;">
+                <HeaderContent>
+                    <MudTh>Ticket ID</MudTh>
+                    <MudTh>Subject</MudTh>
+                    <MudTh>Service Stream</MudTh>
+                    <MudTh>Assignee</MudTh>
+                    <MudTh>Priority</MudTh>
+                    <MudTh>SLA Window</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh></MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Ticket ID">
+                        <MudText Typo="Typo.body2" Class="ops-mono" Color="Color.Primary" Style="font-weight: 600;">@context.Id</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Subject">
+                        <MudText Typo="Typo.body2" Style="font-weight: 500;">@context.Title</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@context.Environment • @context.Category</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Service Stream">
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">@context.ServiceStream</MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Assignee">@(context.AssignedSpecialist ?? "Unassigned")</MudTd>
+                    <MudTd DataLabel="Priority">
+                        <MudChip T="string" Size="Size.Small" Color="UiHelpers.PriorityColor(context.Priority)" Variant="Variant.Filled">@context.Priority</MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="SLA Window">
+                        @{ var sla = UiHelpers.SlaHealth(context); }
+                        <MudChip T="string" Size="Size.Small" Color="sla.Color" Variant="Variant.Outlined">
+                            @UiHelpers.FormatTimeRemaining(context.TatDueDate, context.Status)
+                        </MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Status">
+                        <MudChip T="string" Size="Size.Small" Color="UiHelpers.StatusColor(context.Status)" Variant="Variant.Text">
+                            @UiHelpers.StatusLabel(context.Status)
+                        </MudChip>
+                    </MudTd>
+                    <MudTd>
+                        <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary"
+                                   OnClick="@(() => Navigation.NavigateTo($"/tickets/{context.Id}"))">
+                            Inspect
+                        </MudButton>
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudPaper>
+    }
+</MudStack>
+
+@code {
+    private bool _loading = true;
+    private ReportSummaryDto? _summary;
+    private List<TicketSummaryDto> _watchlist = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _summary = await Mediator.Send(new GetReportSummaryQuery());
+        var page = await Mediator.Send(new GetTicketsQuery(PageSize: 6));
+        _watchlist = page.Items;
+        _loading = false;
+    }
+}

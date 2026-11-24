@@ -1,0 +1,180 @@
+@page "/triage"
+@inject IMediator Mediator
+@inject RoleState RoleState
+@inject ISnackbar Snackbar
+
+<PageTitle>Triage Queue &amp; Assignment — OpsDesk</PageTitle>
+
+<MudStack Spacing="5">
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="flex-wrap gap-3">
+        <div>
+            <MudText Typo="Typo.h4">Triage Queue &amp; Assignment</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                Validate incoming priorities, review technical context, and route tickets to engineering specialists.
+            </MudText>
+        </div>
+        <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined">@_queue.Count Unassigned</MudChip>
+    </MudStack>
+
+    @if (_loading)
+    {
+        <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+    }
+    else if (_queue.Count == 0)
+    {
+        <MudPaper Class="pa-8 ops-card text-center" Elevation="0">
+            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Large" />
+            <MudText Typo="Typo.h6" Class="mt-2">Triage Queue Clear</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">All incoming service requests have been assigned.</MudText>
+        </MudPaper>
+    }
+    else
+    {
+        <MudGrid Spacing="4">
+            <!-- Left Incoming Queue List -->
+            <MudItem xs="12" md="5">
+                <MudStack Spacing="3">
+                    @foreach (var item in _queue)
+                    {
+                        var selected = _selected?.Id == item.Id;
+                        <MudPaper Class="@(selected ? "pa-4 ops-selected-card" : "pa-4 ops-card-hover")"
+                                  Elevation="0"
+                                  @onclick="@(() => SelectTicket(item))">
+                            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-1">
+                                <MudText Typo="Typo.body2" Class="ops-mono" Color="Color.Primary" Style="font-weight: 600;">@item.Id</MudText>
+                                <MudChip T="string" Size="Size.Small" Color="UiHelpers.PriorityColor(item.Priority)" Variant="Variant.Filled">
+                                    @item.Priority
+                                </MudChip>
+                            </MudStack>
+                            <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">@item.Title</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1">
+                                @item.RequesterName • @item.ServiceStream • @item.Environment
+                            </MudText>
+                        </MudPaper>
+                    }
+                </MudStack>
+            </MudItem>
+
+            <!-- Right Inspection & Routing Panel -->
+            <MudItem xs="12" md="7">
+                @if (_selected is not null)
+                {
+                    <MudPaper Class="pa-6 ops-card" Elevation="0">
+                        <MudStack Spacing="4">
+                            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start">
+                                <div>
+                                    <MudText Typo="Typo.caption" Class="ops-mono" Color="Color.Primary">@_selected.Id • @_selected.Environment</MudText>
+                                    <MudText Typo="Typo.h5" Class="mt-1">@_selected.Title</MudText>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        Submitted by @_selected.RequesterName (@_selected.Department)
+                                    </MudText>
+                                </div>
+                                <MudChip T="string" Color="Color.Secondary" Variant="Variant.Outlined">@_selected.ServiceStream</MudChip>
+                            </MudStack>
+
+                            <MudDivider />
+
+                            <div>
+                                <MudText Typo="Typo.subtitle2" Class="mb-1">Request Description</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">@_selected.Description</MudText>
+                            </div>
+
+                            <MudDivider />
+
+                            <MudText Typo="Typo.h6">Assignment &amp; Validation</MudText>
+
+                            <MudGrid Spacing="3">
+                                <MudItem xs="12" sm="6">
+                                    <MudSelect T="Priority" @bind-Value="_validatedPriority" Label="Validate Priority" Variant="Variant.Outlined">
+                                        <MudSelectItem Value="Priority.Urgent">Urgent (1d SLA)</MudSelectItem>
+                                        <MudSelectItem Value="Priority.High">High (3d SLA)</MudSelectItem>
+                                        <MudSelectItem Value="Priority.Standard">Standard (7d SLA)</MudSelectItem>
+                                    </MudSelect>
+                                </MudItem>
+                                <MudItem xs="12" sm="6">
+                                    <MudSelect T="string" @bind-Value="_selectedSpecialist" Label="Assign Specialist" Variant="Variant.Outlined">
+                                        @foreach (var spec in _specialists)
+                                        {
+                                            <MudSelectItem Value="@spec">@spec</MudSelectItem>
+                                        }
+                                    </MudSelect>
+                                </MudItem>
+                            </MudGrid>
+
+                            @if (!string.IsNullOrWhiteSpace(_selected.SuggestedSpecialist))
+                            {
+                                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true">
+                                    Suggested Specialist for <strong>@_selected.Category</strong>: <strong>@_selected.SuggestedSpecialist</strong>
+                                </MudAlert>
+                            }
+
+                            <MudTextField T="string" @bind-Value="_triageNote" Label="Internal Triage Note (Optional)"
+                                          Lines="2" Variant="Variant.Outlined" Placeholder="Add routing context for the assigned engineer..." />
+
+                            <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
+                                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" Href="@($"/tickets/{_selected.Id}")">
+                                    Open Full Workspace
+                                </MudButton>
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="AssignAsync"
+                                           Disabled="string.IsNullOrWhiteSpace(_selectedSpecialist)"
+                                           Style="color: #042F2E; font-weight: 700;">
+                                    Validate &amp; Assign Ticket
+                                </MudButton>
+                            </MudStack>
+                        </MudStack>
+                    </MudPaper>
+                }
+            </MudItem>
+        </MudGrid>
+    }
+</MudStack>
+
+@code {
+    private bool _loading = true;
+    private List<TriageTicketDto> _queue = new();
+    private TriageTicketDto? _selected;
+    private Priority _validatedPriority = Priority.High;
+    private string _selectedSpecialist = "Maya Lin";
+    private string? _triageNote;
+
+    private readonly string[] _specialists = ["Maya Lin", "Devon Brooks", "Samira Patel", "Lucas Vance"];
+
+    protected override async Task OnInitializedAsync() => await LoadQueueAsync();
+
+    private async Task LoadQueueAsync()
+    {
+        _loading = true;
+        _queue = await Mediator.Send(new GetPendingTriageQuery());
+        if (_queue.Count > 0)
+            SelectTicket(_queue[0]);
+        else
+            _selected = null;
+        _loading = false;
+    }
+
+    private void SelectTicket(TriageTicketDto item)
+    {
+        _selected = item;
+        _validatedPriority = Enum.TryParse<Priority>(item.Priority, true, out var p) ? p : Priority.High;
+        _selectedSpecialist = !string.IsNullOrWhiteSpace(item.SuggestedSpecialist) && _specialists.Contains(item.SuggestedSpecialist)
+            ? item.SuggestedSpecialist
+            : _specialists[0];
+        _triageNote = null;
+    }
+
+    private async Task AssignAsync()
+    {
+        if (_selected is null) return;
+
+        if (_validatedPriority.ToString() != _selected.Priority)
+            await Mediator.Send(new ChangePriorityCommand(_selected.Id, _validatedPriority));
+
+        await Mediator.Send(new AssignSpecialistCommand(_selected.Id, _selectedSpecialist));
+
+        if (!string.IsNullOrWhiteSpace(_triageNote))
+            await Mediator.Send(new AddTicketNoteCommand(_selected.Id, RoleState.CurrentDisplayName, _triageNote.Trim()));
+
+        Snackbar.Add($"Ticket {_selected.Id} assigned to {_selectedSpecialist}.", Severity.Success);
+        await LoadQueueAsync();
+    }
+}

@@ -1,0 +1,80 @@
+﻿{
+    "projectId":  "12928265875133280844",
+    "projectTitle":  "OpsDesk",
+    "designSystemId":  "assets/5565694736174200731",
+    "designSystemName":  "OpsDesk — Obsidian \u0026 Emerald",
+    "screens":  [
+                    {
+                        "slug":  "01-operations-overview",
+                        "screenId":  "e9a6ac8fb02a43ad81f1bb60aed60010",
+                        "title":  "Operations Overview Dashboard",
+                        "deviceType":  "DESKTOP",
+                        "htmlFile":  ".stitch/designs/opsdesk/01-operations-overview.html",
+                        "screenshotFile":  ".stitch/designs/opsdesk/01-operations-overview.png"
+                    },
+                    {
+                        "slug":  "02-my-requests",
+                        "screenId":  "b84dce9dff5d4f5e9d7f252b9c97aec9",
+                        "title":  "My Requests â€” OpsDesk Requester Portal",
+                        "deviceType":  "DESKTOP",
+                        "htmlFile":  ".stitch/designs/opsdesk/02-my-requests.html",
+                        "screenshotFile":  ".stitch/designs/opsdesk/02-my-requests.png"
+                    },
+                    {
+                        "slug":  "03-submit-request",
+                        "screenId":  "70812d88ca05450e8a17a301b2c5ea38",
+                        "title":  "Submit Service Request â€” OpsDesk Intake",
+                        "deviceType":  "DESKTOP",
+                        "htmlFile":  ".stitch/designs/opsdesk/03-submit-request.html",
+                        "screenshotFile":  ".stitch/designs/opsdesk/03-submit-request.png"
+                    },
+                    {
+                        "slug":  "04-triage-queue",
+                        "screenId":  "06d26d5ba20e4df38a45a85080ed5d91",
+                        "title":  "Triage Queue \u0026 Assignment â€” OpsDesk",
+                        "deviceType":  "DESKTOP",
+                        "htmlFile":  ".stitch/designs/opsdesk/04-triage-queue.html",
+                        "screenshotFile":  ".stitch/designs/opsdesk/04-triage-queue.png"
+                    },
+                    {
+                        "slug":  "05-ticket-detail",
+                        "screenId":  "b62e87c1e9714e0ca7984f62fa9a008b",
+                        "title":  "OPS-2041 â€” Ticket Detail \u0026 Collaboration Workspace",
+                        "deviceType":  "DESKTOP",
+                        "htmlFile":  ".stitch/designs/opsdesk/05-ticket-detail.html",
+                        "screenshotFile":  ".stitch/designs/opsdesk/05-ticket-detail.png"
+                    },
+                    {
+                        "slug":  "06-all-tickets",
+                        "screenId":  "5d7b21c8d1844c7c8f950b5f9003e676",
+                        "title":  "All Tickets Directory â€” OpsDesk",
+                        "deviceType":  "DESKTOP",
+                        "htmlFile":  ".stitch/designs/opsdesk/06-all-tickets.html",
+                        "screenshotFile":  ".stitch/designs/opsdesk/06-all-tickets.png"
+                    },
+                    {
+                        "slug":  "07-reports-sla",
+                        "screenId":  "8495a52d210945de8adaad6893d3f11b",
+                        "title":  "Reports \u0026 SLA Analytics â€” OpsDesk",
+                        "deviceType":  "DESKTOP",
+                        "htmlFile":  ".stitch/designs/opsdesk/07-reports-sla.html",
+                        "screenshotFile":  ".stitch/designs/opsdesk/07-reports-sla.png"
+                    },
+                    {
+                        "slug":  "08-admin-roles",
+                        "screenId":  "7a30863fafcf478cafd25f0a080d0221",
+                        "title":  "Admin \u0026 Role Management â€” OpsDesk",
+                        "deviceType":  "DESKTOP",
+                        "htmlFile":  ".stitch/designs/opsdesk/08-admin-roles.html",
+                        "screenshotFile":  ".stitch/designs/opsdesk/08-admin-roles.png"
+                    },
+                    {
+                        "slug":  "09-notification-center",
+                        "screenId":  "1ac96bbb186544d590a6149715fb7ed0",
+                        "title":  "Notification Center â€” OpsDesk",
+                        "deviceType":  "DESKTOP",
+                        "htmlFile":  ".stitch/designs/opsdesk/09-notification-center.html",
+                        "screenshotFile":  ".stitch/designs/opsdesk/09-notification-center.png"
+                    }
+                ]
+}

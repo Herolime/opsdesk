@@ -1,0 +1,112 @@
+@page "/admin/roles"
+@inject IMediator Mediator
+
+<PageTitle>Admin &amp; Role Management — OpsDesk</PageTitle>
+
+<MudStack Spacing="5">
+    <div>
+        <MudText Typo="Typo.h4">Admin &amp; Role Management</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">
+            Configure workspace role mappings and automated service-stream routing queues.
+        </MudText>
+    </div>
+
+    <MudGrid Spacing="4">
+        <MudItem xs="6" md="3">
+            <MudPaper Class="pa-4 ops-card" Elevation="0">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">OPERATIONS LEADS</MudText>
+                <MudText Typo="Typo.h4" Class="mt-1">1</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="6" md="3">
+            <MudPaper Class="pa-4 ops-card" Elevation="0">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">TRIAGE LEADS</MudText>
+                <MudText Typo="Typo.h4" Class="mt-1">1</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="6" md="3">
+            <MudPaper Class="pa-4 ops-card" Elevation="0">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">SPECIALISTS</MudText>
+                <MudText Typo="Typo.h4" Class="mt-1">4</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="6" md="3">
+            <MudPaper Class="pa-4 ops-card" Elevation="0">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">ROUTING RULES</MudText>
+                <MudText Typo="Typo.h4" Color="Color.Primary" Class="mt-1">@_mappings.Count</MudText>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <MudPaper Class="pa-5 ops-card" Elevation="0">
+        <MudTabs Elevation="0" Rounded="true" TabPanelsClass="pt-4">
+            <MudTabPanel Text="Role Mapping" Icon="@Icons.Material.Filled.Group">
+                <MudTable Items="_members" Hover="true" Dense="true" Elevation="0" Style="background: transparent;">
+                    <HeaderContent>
+                        <MudTh>Member</MudTh>
+                        <MudTh>Email</MudTh>
+                        <MudTh>Workspace Role</MudTh>
+                        <MudTh>Primary Stream</MudTh>
+                        <MudTh>Active</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd>
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <MudAvatar Color="Color.Primary" Size="Size.Small" Style="color: #042F2E; font-weight: 700;">@context.Initials</MudAvatar>
+                                <MudText Typo="Typo.body2" Style="font-weight: 500;">@context.Name</MudText>
+                            </MudStack>
+                        </MudTd>
+                        <MudTd><MudText Typo="Typo.body2" Color="Color.Secondary">@context.Email</MudText></MudTd>
+                        <MudTd><MudChip T="string" Size="Size.Small" Color="Color.Secondary" Variant="Variant.Outlined">@context.Role</MudChip></MudTd>
+                        <MudTd><MudChip T="string" Size="Size.Small" Variant="Variant.Text">@context.Stream</MudChip></MudTd>
+                        <MudTd><MudSwitch T="bool" @bind-Value="context.Active" Color="Color.Primary" /></MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudTabPanel>
+
+            <MudTabPanel Text="Service Stream Routing Rules" Icon="@Icons.Material.Filled.AltRoute">
+                <MudTable Items="_mappings" Hover="true" Dense="true" Elevation="0" Style="background: transparent;">
+                    <HeaderContent>
+                        <MudTh>Category</MudTh>
+                        <MudTh>Service Stream</MudTh>
+                        <MudTh>Primary Specialist</MudTh>
+                        <MudTh>Backup Specialist</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd>@context.CategoryName</MudTd>
+                        <MudTd><MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@context.ServiceStream</MudChip></MudTd>
+                        <MudTd><MudText Typo="Typo.body2" Color="Color.Primary">@context.PrimarySpecialist</MudText></MudTd>
+                        <MudTd>@(context.BackupSpecialist ?? "—")</MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudTabPanel>
+        </MudTabs>
+    </MudPaper>
+</MudStack>
+
+@code {
+    private List<StreamSpecialistMappingDto> _mappings = new();
+
+    private readonly List<TeamMemberRow> _members =
+    [
+        new("Alex Rivera", "AR", "alex.rivera@opsdesk.io", "Operations Lead", "All Streams", true),
+        new("Maya Lin", "ML", "maya.lin@opsdesk.io", "Specialist", "Infrastructure", true),
+        new("Devon Brooks", "DB", "devon.brooks@opsdesk.io", "Triage Lead", "CloudPlatform", true),
+        new("Samira Patel", "SP", "samira.patel@opsdesk.io", "System Admin", "SecurityOps", true),
+        new("Lucas Vance", "LV", "lucas.vance@opsdesk.io", "Specialist", "DataAnalytics", true),
+        new("Jordan Chen", "JC", "jordan.chen@opsdesk.io", "Requester", "Platform Engineering", true)
+    ];
+
+    protected override async Task OnInitializedAsync() =>
+        _mappings = await Mediator.Send(new GetStreamMappingsQuery());
+
+    private sealed class TeamMemberRow(string name, string initials, string email, string role, string stream, bool active)
+    {
+        public string Name { get; } = name;
+        public string Initials { get; } = initials;
+        public string Email { get; } = email;
+        public string Role { get; } = role;
+        public string Stream { get; } = stream;
+        public bool Active { get; set; } = active;
+    }
+}

@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/OpsDesk.Api/OpsDesk.Api.csproj" />
+    <Project Path="src/OpsDesk.Application/OpsDesk.Application.csproj" />
+    <Project Path="src/OpsDesk.Data/OpsDesk.Data.csproj" />
+    <Project Path="src/OpsDesk.Domain/OpsDesk.Domain.csproj" />
+    <Project Path="src/OpsDesk.IntegrationTests/OpsDesk.IntegrationTests.csproj" />
+    <Project Path="src/OpsDesk.Web/OpsDesk.Web.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,250 @@
+@page "/submit"
+@inject IMediator Mediator
+@inject RoleState RoleState
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Submit Service Request — OpsDesk</PageTitle>
+
+<MudStack Spacing="5">
+    <div>
+        <MudText Typo="Typo.caption" Color="Color.Secondary">REQUESTS / SUBMIT SERVICE REQUEST</MudText>
+        <MudText Typo="Typo.h4" Class="mt-1">Submit Service Request</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">
+            Route infrastructure, cloud platform, security, or data requests with automated SLA tracking.
+        </MudText>
+    </div>
+
+    <MudGrid Spacing="4">
+        <!-- Left Primary Form -->
+        <MudItem xs="12" md="8">
+            <MudPaper Class="pa-6 ops-card" Elevation="0">
+                <MudForm @ref="_form" @bind-IsValid="_isValid">
+                    <MudStack Spacing="4">
+                        <MudText Typo="Typo.h6">1. Classification &amp; Scope</MudText>
+
+                        <MudTextField T="string"
+                                      @bind-Value="_title"
+                                      Label="Request Title"
+                                      Placeholder="e.g., Production Redis Cluster Memory Expansion"
+                                      Required="true"
+                                      RequiredError="Title is required"
+                                      Variant="Variant.Outlined" />
+
+                        <div>
+                            <MudText Typo="Typo.subtitle2" Class="mb-2">Service Stream</MudText>
+                            <MudGrid Spacing="2">
+                                @foreach (var stream in Enum.GetValues<ServiceStream>())
+                                {
+                                    var selected = _serviceStream == stream;
+                                    <MudItem xs="6" sm="3">
+                                        <MudPaper Class="@(selected ? "pa-3 ops-selected-card" : "pa-3 ops-card-hover")"
+                                                  Elevation="0"
+                                                  @onclick="@(() => SelectStreamAsync(stream))">
+                                            <MudText Typo="Typo.body2" Style="font-weight: 600;" Color="@(selected ? Color.Primary : Color.Default)">
+                                                @stream
+                                            </MudText>
+                                        </MudPaper>
+                                    </MudItem>
+                                }
+                            </MudGrid>
+                        </div>
+
+                        <MudGrid Spacing="3">
+                            <MudItem xs="12" sm="4">
+                                <MudSelect T="Priority" @bind-Value="_priority" Label="Priority Tier" Variant="Variant.Outlined">
+                                    <MudSelectItem Value="Priority.Standard">Standard (7d SLA)</MudSelectItem>
+                                    <MudSelectItem Value="Priority.High">High (3d SLA)</MudSelectItem>
+                                    <MudSelectItem Value="Priority.Urgent">Urgent (1d SLA)</MudSelectItem>
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="12" sm="4">
+                                <MudSelect T="DeploymentEnvironment" @bind-Value="_environment" Label="Target Environment" Variant="Variant.Outlined">
+                                    <MudSelectItem Value="DeploymentEnvironment.Production">Production</MudSelectItem>
+                                    <MudSelectItem Value="DeploymentEnvironment.Staging">Staging</MudSelectItem>
+                                    <MudSelectItem Value="DeploymentEnvironment.Development">Development</MudSelectItem>
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="12" sm="4">
+                                <MudSelect T="string" Value="_category" ValueChanged="OnCategoryChanged" Label="Category" Variant="Variant.Outlined">
+                                    @foreach (var cat in _categories)
+                                    {
+                                        <MudSelectItem Value="@cat">@cat</MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
+                        </MudGrid>
+
+                        <MudDivider />
+
+                        <MudText Typo="Typo.h6">2. Technical Details &amp; Justification</MudText>
+
+                        <MudTextField T="string"
+                                      @bind-Value="_description"
+                                      Label="Description &amp; Impact"
+                                      Lines="5"
+                                      Required="true"
+                                      RequiredError="Description is required"
+                                      Placeholder="Describe the operational requirement, affected workloads, and desired outcome..."
+                                      Variant="Variant.Outlined" />
+
+                        <MudTextField T="string"
+                                      @bind-Value="_technicalContext"
+                                      Label="Technical Context (Optional)"
+                                      Placeholder="Cluster IDs, CIDR ranges, namespace, or change reference..."
+                                      Variant="Variant.Outlined" />
+
+                        <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2" Class="pt-2">
+                            <MudButton Variant="Variant.Outlined" Color="Color.Default" Href="/my-requests">
+                                Cancel
+                            </MudButton>
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       Disabled="_submitting"
+                                       OnClick="SubmitAsync"
+                                       Style="color: #042F2E; font-weight: 700;">
+                                @(_submitting ? "Submitting..." : "Submit Service Request")
+                            </MudButton>
+                        </MudStack>
+                    </MudStack>
+                </MudForm>
+            </MudPaper>
+        </MudItem>
+
+        <!-- Right Contextual Guidance Sidebar -->
+        <MudItem xs="12" md="4">
+            <MudStack Spacing="4">
+                <MudCard Class="ops-card" Elevation="0">
+                    <MudCardContent>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
+                            <MudIcon Icon="@Icons.Material.Filled.Timer" Color="Color.Primary" />
+                            <MudText Typo="Typo.h6">Estimated SLA Preview</MudText>
+                        </MudStack>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                            Calculated from selected priority tier (<strong style="color: #F8FAFC;">@_priority</strong>):
+                        </MudText>
+                        <MudAlert Severity="@(_priority == Priority.Urgent ? Severity.Error : _priority == Priority.High ? Severity.Warning : Severity.Info)"
+                                  Variant="Variant.Outlined" Dense="true">
+                            Target Resolution: <strong>@TargetDays business day(s)</strong>
+                        </MudAlert>
+                    </MudCardContent>
+                </MudCard>
+
+                <MudCard Class="ops-card" Elevation="0">
+                    <MudCardContent>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
+                            <MudIcon Icon="@Icons.Material.Filled.AltRoute" Color="Color.Secondary" />
+                            <MudText Typo="Typo.h6">Routing Preview</MudText>
+                        </MudStack>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            Queue: <strong style="color: #F8FAFC;">@_serviceStream Triage</strong>
+                        </MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1">
+                            Suggested Specialist: <strong style="color: #10B981;">@(_suggestedSpecialist ?? "Auto-Triage Queue")</strong>
+                        </MudText>
+                    </MudCardContent>
+                </MudCard>
+
+                <MudCard Class="ops-card" Elevation="0">
+                    <MudCardContent>
+                        <MudText Typo="Typo.h6" Class="mb-2">Expedited Review Checklist</MudText>
+                        <MudList T="string" Dense="true">
+                            <MudListItem Icon="@Icons.Material.Filled.CheckCircleOutline" IconColor="Color.Primary">
+                                Specify exact environment &amp; region
+                            </MudListItem>
+                            <MudListItem Icon="@Icons.Material.Filled.CheckCircleOutline" IconColor="Color.Primary">
+                                Include resource IDs or CIDR blocks
+                            </MudListItem>
+                            <MudListItem Icon="@Icons.Material.Filled.CheckCircleOutline" IconColor="Color.Primary">
+                                Note any maintenance window constraints
+                            </MudListItem>
+                        </MudList>
+                    </MudCardContent>
+                </MudCard>
+            </MudStack>
+        </MudItem>
+    </MudGrid>
+</MudStack>
+
+@code {
+    private MudForm _form = default!;
+    private bool _isValid;
+    private bool _submitting;
+
+    private string _title = string.Empty;
+    private ServiceStream _serviceStream = ServiceStream.Infrastructure;
+    private Priority _priority = Priority.High;
+    private DeploymentEnvironment _environment = DeploymentEnvironment.Production;
+    private string _category = "Kubernetes & Compute";
+    private string _description = string.Empty;
+    private string? _technicalContext;
+    private string? _suggestedSpecialist;
+
+    private readonly string[] _categories =
+    [
+        "Kubernetes & Compute",
+        "Database & Caching",
+        "Networking & VPC",
+        "CI/CD & Pipelines",
+        "IAM & SSO",
+        "Secrets & Certificates",
+        "Data Warehouse & ETL",
+        "Observability & Telemetry",
+        "General Operations"
+    ];
+
+    private int TargetDays => _priority switch
+    {
+        Priority.Urgent => 1,
+        Priority.High => 3,
+        _ => 7
+    };
+
+    protected override async Task OnInitializedAsync() => await RefreshSuggestionAsync();
+
+    private async Task SelectStreamAsync(ServiceStream stream)
+    {
+        _serviceStream = stream;
+        await RefreshSuggestionAsync();
+    }
+
+    private async Task OnCategoryChanged(string category)
+    {
+        _category = category;
+        await RefreshSuggestionAsync();
+    }
+
+    private async Task RefreshSuggestionAsync() =>
+        _suggestedSpecialist = await Mediator.Send(new SuggestSpecialistQuery(_category, _serviceStream.ToString()));
+
+    private async Task SubmitAsync()
+    {
+        await _form.ValidateAsync();
+        if (!_isValid) return;
+
+        _submitting = true;
+        try
+        {
+            var ticketId = await Mediator.Send(new SubmitRequestCommand
+            {
+                RequesterName = RoleState.CurrentDisplayName,
+                RequesterEmail = RoleState.CurrentEmail,
+                Department = RoleState.CurrentDepartment,
+                Priority = _priority,
+                ServiceStream = _serviceStream,
+                Environment = _environment,
+                Category = _category,
+                Title = _title.Trim(),
+                Description = _description.Trim(),
+                TechnicalContext = string.IsNullOrWhiteSpace(_technicalContext) ? null : _technicalContext.Trim()
+            });
+
+            Snackbar.Add($"Service request {ticketId} submitted.", Severity.Success);
+            Navigation.NavigateTo($"/tickets/{ticketId}");
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+}
