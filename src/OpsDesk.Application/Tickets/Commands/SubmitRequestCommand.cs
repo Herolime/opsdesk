@@ -1,5 +1,5 @@
 using MediatR;
-using OpsDesk.Domain.Enums;
+using OpsDesk.Application.Enums;
 
 namespace OpsDesk.Application.Tickets.Commands;
 

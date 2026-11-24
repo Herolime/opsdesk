@@ -14,9 +14,13 @@ public class TicketSummaryDto
     public string Title { get; set; } = default!;
     public string Status { get; set; } = default!;
     public string? AssignedSpecialist { get; set; }
+    public string? ReturnReason { get; set; }
+    public string? ReturnedBy { get; set; }
+    public DateTime? ReturnedAt { get; set; }
     public DateTime TatDueDate { get; set; }
     public DateTime? CompletedDate { get; set; }
-    public int Total { get; set; }
+    public string? ClosedBy { get; set; }
+
     public bool IsOverdue =>
         DateTime.UtcNow > TatDueDate &&
         !string.Equals(Status, "Resolved", StringComparison.OrdinalIgnoreCase);
@@ -86,20 +90,13 @@ public sealed class TriageTicketDto
     public string? SuggestedSpecialist { get; set; }
 }
 
-public sealed class PagedResult<T>
-{
-    public int Total { get; set; }
-    public int Page { get; set; }
-    public int PageSize { get; set; }
-    public List<T> Items { get; set; } = new();
-}
-
 public sealed class ReportSummaryDto
 {
     public int TotalTickets { get; set; }
     public int OpenTickets { get; set; }
+    public int ReturnedTickets { get; set; }
     public int InProgressTickets { get; set; }
-    public int PendingReviewTickets { get; set; }
+    public int PendingApprovalTickets { get; set; }
     public int ResolvedTickets { get; set; }
     public int AtRiskTickets { get; set; }
     public double OnTimeRate { get; set; }
@@ -119,6 +116,7 @@ public sealed class SpecialistThroughputDto
 {
     public string SpecialistName { get; set; } = default!;
     public int AssignedCount { get; set; }
+    public int PendingApprovalCount { get; set; }
     public int ResolvedCount { get; set; }
     public double OnTimeRate { get; set; }
 }

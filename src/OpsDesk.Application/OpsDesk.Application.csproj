@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\OpsDesk.Domain\OpsDesk.Domain.csproj" />
+    <ProjectReference Include="..\OpsDesk.Common\OpsDesk.Common.csproj" />
   </ItemGroup>
 
   <ItemGroup>

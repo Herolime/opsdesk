@@ -1,10 +1,11 @@
-namespace OpsDesk.Domain.Enums;
+namespace OpsDesk.Application.Enums;
 
 public enum TicketStatus
 {
     Open,
+    ReturnedToRequester,
     InProgress,
-    PendingReview,
+    PendingApproval,
     Resolved
 }
 
@@ -28,4 +29,13 @@ public enum DeploymentEnvironment
     Production,
     Staging,
     Development
+}
+
+public enum WorkspaceRole
+{
+    Requester,
+    Specialist,
+    TriageLead,
+    OperationsLead,
+    Admin
 }

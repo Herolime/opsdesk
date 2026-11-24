@@ -2,12 +2,15 @@
 
   <ItemGroup>
     <ProjectReference Include="..\OpsDesk.Application\OpsDesk.Application.csproj" />
+    <ProjectReference Include="..\OpsDesk.Common\OpsDesk.Common.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Dapper" Version="2.1.79" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.10" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.10" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.10" />
   </ItemGroup>
 
   <PropertyGroup>

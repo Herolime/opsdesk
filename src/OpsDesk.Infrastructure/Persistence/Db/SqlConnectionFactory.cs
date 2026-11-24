@@ -2,13 +2,13 @@ using System.Data;
 using Microsoft.Data.Sqlite;
 using OpsDesk.Application.Common.Interfaces;
 
-namespace OpsDesk.Data.Db;
+namespace OpsDesk.Infrastructure.Persistence.Db;
 
-public sealed class DbConnectionFactory : IDbConnectionFactory
+public sealed class SqlConnectionFactory : IDbConnectionFactory
 {
     private readonly string _connectionString;
 
-    public DbConnectionFactory(string connectionString) => _connectionString = connectionString;
+    public SqlConnectionFactory(string connectionString) => _connectionString = connectionString;
 
     public IDbConnection CreateConnection()
     {

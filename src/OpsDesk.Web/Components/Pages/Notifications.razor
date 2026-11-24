@@ -1,7 +1,5 @@
 @page "/notifications"
-@implements IDisposable
-@inject NotificationState NotificationState
-@inject IMediator Mediator
+@inject OpsDesk.Application.Common.Interfaces.INotificationRepository NotificationRepo
 @inject NavigationManager Navigation
 
 <PageTitle>Notification Center — OpsDesk</PageTitle>
@@ -11,10 +9,10 @@
         <div>
             <MudText Typo="Typo.h4">Notification Center</MudText>
             <MudText Typo="Typo.body2" Color="Color.Secondary">
-                Real-time SLA warnings, triage assignments, and collaboration updates.
+                Real-time SLA warnings, triage assignments, return-with-feedback alerts, and approvals.
             </MudText>
         </div>
-        <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="MarkAllRead">
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="MarkAllReadAsync">
             Mark All as Read
         </MudButton>
     </MudStack>
@@ -22,12 +20,18 @@
     <MudGrid Spacing="4">
         <MudItem xs="12" md="8">
             <MudStack Spacing="3">
-                @foreach (var alert in NotificationState.Alerts)
+                @if (_alerts.Count == 0)
+                {
+                    <MudPaper Class="pa-6 ops-card text-center" Elevation="0">
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">No notifications yet.</MudText>
+                    </MudPaper>
+                }
+                @foreach (var alert in _alerts)
                 {
                     <MudPaper Class="@(alert.IsRead ? "pa-4 ops-card" : "pa-4 ops-selected-card")" Elevation="0">
                         <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start">
                             <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Start">
-                                <MudIcon Icon="@alert.Icon" Color="alert.Color" Class="mt-1" />
+                                <MudIcon Icon="@IconFor(alert.Category)" Color="@ColorFor(alert.Category)" Class="mt-1" />
                                 <div>
                                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                                         <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">@alert.Title</MudText>
@@ -39,7 +43,7 @@
                                 </div>
                             </MudStack>
                             <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary"
-                                       OnClick="@(() => OpenAlert(alert))">
+                                       OnClick="@(() => OpenTicketAsync(alert))">
                                 Open
                             </MudButton>
                         </MudStack>
@@ -69,20 +73,39 @@
     private bool _assignAlerts = true;
     private bool _mentionAlerts = true;
     private bool _digestAlerts = false;
+    private List<Notification> _alerts = new();
 
-    protected override async Task OnInitializedAsync()
-    {
-        NotificationState.OnChange += StateHasChanged;
-        await NotificationState.EnsureLoadedAsync(Mediator);
-    }
+    protected override async Task OnInitializedAsync() =>
+        _alerts = await NotificationRepo.GetRecentAsync(limit: 40);
 
-    private void OpenAlert(NotificationItem alert)
+    private async Task OpenTicketAsync(Notification alert)
     {
-        NotificationState.MarkAsRead(alert);
+        if (!alert.IsRead)
+            await NotificationRepo.MarkAsReadAsync(alert.Id);
         Navigation.NavigateTo($"/tickets/{alert.TicketId}");
     }
 
-    private void MarkAllRead() => NotificationState.MarkAllRead();
+    private async Task MarkAllReadAsync()
+    {
+        await NotificationRepo.MarkAllAsReadAsync();
+        foreach (var a in _alerts) a.IsRead = true;
+    }
 
-    public void Dispose() => NotificationState.OnChange -= StateHasChanged;
+    private static string IconFor(string category) => category switch
+    {
+        "Returned" => Icons.Material.Filled.Reply,
+        "Approval" => Icons.Material.Filled.VerifiedUser,
+        "Resolved" => Icons.Material.Filled.CheckCircleOutline,
+        "SLA" => Icons.Material.Filled.WarningAmber,
+        _ => Icons.Material.Filled.Notifications
+    };
+
+    private static Color ColorFor(string category) => category switch
+    {
+        "Returned" => Color.Warning,
+        "Approval" => Color.Tertiary,
+        "Resolved" => Color.Success,
+        "SLA" => Color.Error,
+        _ => Color.Info
+    };
 }

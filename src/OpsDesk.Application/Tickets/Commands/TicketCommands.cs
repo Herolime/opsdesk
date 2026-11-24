@@ -1,9 +1,19 @@
 using MediatR;
-using OpsDesk.Domain.Enums;
+using OpsDesk.Application.Enums;
 
 namespace OpsDesk.Application.Tickets.Commands;
 
 public sealed record AssignSpecialistCommand(string TicketId, string SpecialistName) : IRequest;
+
+public sealed record ReturnTicketToRequesterCommand(string TicketId, string ReturnedBy, string Reason) : IRequest;
+
+public sealed record ResubmitTicketCommand(string TicketId, string Title, string Description, string? TechnicalContext) : IRequest;
+
+public sealed record SubmitForApprovalCommand(string TicketId, string SubmittedBy) : IRequest;
+
+public sealed record ReturnTicketToProgressCommand(string TicketId, string ReturnedBy, string Feedback) : IRequest;
+
+public sealed record ApproveAndCloseTicketCommand(string TicketId, string ClosedBy, string? ResolutionSummary = null) : IRequest;
 
 public sealed record UpdateTicketStatusCommand(string TicketId, TicketStatus NewStatus) : IRequest;
 

@@ -1,6 +1,7 @@
 @page "/triage"
 @inject IMediator Mediator
 @inject RoleState RoleState
+@inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
 <PageTitle>Triage Queue &amp; Assignment — OpsDesk</PageTitle>
@@ -113,6 +114,9 @@
                                           Lines="2" Variant="Variant.Outlined" Placeholder="Add routing context for the assigned engineer..." />
 
                             <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
+                                <MudButton Variant="Variant.Outlined" Color="Color.Warning" OnClick="ReturnToRequesterAsync">
+                                    Return to Requester
+                                </MudButton>
                                 <MudButton Variant="Variant.Outlined" Color="Color.Secondary" Href="@($"/tickets/{_selected.Id}")">
                                     Open Full Workspace
                                 </MudButton>
@@ -185,5 +189,23 @@
 
         Snackbar.Add($"Ticket {_selected.Id} assigned to {_selectedSpecialist}.", Severity.Success);
         await LoadQueueAsync();
+    }
+
+    private async Task ReturnToRequesterAsync()
+    {
+        if (_selected is null) return;
+        var parameters = new DialogParameters<ReturnWithFeedbackDialog>
+        {
+            { x => x.Title, $"Return {_selected.Id} to Requester" },
+            { x => x.Prompt, "Explain what additional details or clarification are needed from the requester." }
+        };
+        var dialog = await DialogService.ShowAsync<ReturnWithFeedbackDialog>("Return Ticket", parameters);
+        var result = await dialog.Result;
+        if (result is not null && !result.Canceled && result.Data is string reason && !string.IsNullOrWhiteSpace(reason))
+        {
+            await Mediator.Send(new ReturnTicketToRequesterCommand(_selected.Id, RoleState.CurrentDisplayName, reason));
+            Snackbar.Add($"Ticket {_selected.Id} returned to requester.", Severity.Warning);
+            await LoadQueueAsync();
+        }
     }
 }

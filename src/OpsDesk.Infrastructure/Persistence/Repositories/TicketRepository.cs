@@ -1,12 +1,11 @@
 using System.Globalization;
 using Dapper;
 using OpsDesk.Application.Common.Interfaces;
-using OpsDesk.Domain.Aggregates;
-using OpsDesk.Domain.Entities;
-using OpsDesk.Domain.Enums;
-using OpsDesk.Domain.ValueObjects;
+using OpsDesk.Application.Entities;
+using OpsDesk.Application.Enums;
+using OpsDesk.Infrastructure.Persistence.Db;
 
-namespace OpsDesk.Data.Repositories;
+namespace OpsDesk.Infrastructure.Persistence.Repositories;
 
 public sealed class TicketRepository : ITicketRepository, ITicketNumberGenerator
 {
@@ -14,7 +13,7 @@ public sealed class TicketRepository : ITicketRepository, ITicketNumberGenerator
 
     public TicketRepository(IDbConnectionFactory factory) => _factory = factory;
 
-    public async Task<TicketId> NextAsync(CancellationToken ct = default)
+    public async Task<string> NextAsync(CancellationToken ct = default)
     {
         using var connection = _factory.CreateConnection();
         using var tx = connection.BeginTransaction();
@@ -22,10 +21,10 @@ public sealed class TicketRepository : ITicketRepository, ITicketNumberGenerator
             "UPDATE Sequence SET LastValue = LastValue + 1 WHERE Id = 1 RETURNING LastValue;",
             transaction: tx);
         tx.Commit();
-        return TicketId.Create(next);
+        return $"OPS-{next:D4}";
     }
 
-    public async Task<ServiceTicket?> GetByIdAsync(string id, CancellationToken ct = default)
+    public async Task<Ticket?> GetByIdAsync(string id, CancellationToken ct = default)
     {
         using var connection = _factory.CreateConnection();
         var row = await connection.QuerySingleOrDefaultAsync<TicketRow>(
@@ -67,27 +66,32 @@ public sealed class TicketRepository : ITicketRepository, ITicketNumberGenerator
             n.Id, n.Author, n.NoteText,
             DateTime.Parse(n.CreatedDate, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind)));
 
-        var ticket = ServiceTicket.Create(
-            TicketId.Create(row.Id),
-            new RequesterInfo(row.RequesterName, row.RequesterEmail, row.Department),
+        var ticket = Ticket.Create(
+            row.Id,
+            row.RequesterName,
+            row.RequesterEmail,
+            row.Department,
             Enum.Parse<Priority>(row.Priority, ignoreCase: true),
             Enum.Parse<ServiceStream>(row.ServiceStream, ignoreCase: true),
             Enum.Parse<DeploymentEnvironment>(row.Environment, ignoreCase: true),
             row.Category,
             row.Title,
             row.Description,
+            row.TargetTatDays,
+            DateTime.Parse(row.TatDueDate, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind),
             row.TechnicalContext);
 
-        ticket.ClearDomainEvents();
         ticket.Hydrate(
             DateTime.Parse(row.CreatedDate, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind),
             Enum.Parse<TicketStatus>(row.Status, ignoreCase: true),
             row.AssignedSpecialist,
+            row.ReturnReason,
+            row.ReturnedBy,
+            row.ReturnedAt is null ? null : DateTime.Parse(row.ReturnedAt, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind),
             DateTime.Parse(row.TatDueDate, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind),
             row.TargetTatDays,
-            row.CompletedDate is null
-                ? null
-                : DateTime.Parse(row.CompletedDate, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind),
+            row.CompletedDate is null ? null : DateTime.Parse(row.CompletedDate, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind),
+            row.ClosedBy,
             review,
             escalation,
             messages,
@@ -96,7 +100,7 @@ public sealed class TicketRepository : ITicketRepository, ITicketNumberGenerator
         return ticket;
     }
 
-    public async Task AddAsync(ServiceTicket ticket, CancellationToken ct = default)
+    public async Task AddAsync(Ticket ticket, CancellationToken ct = default)
     {
         using var connection = _factory.CreateConnection();
         using var tx = connection.BeginTransaction();
@@ -105,21 +109,23 @@ public sealed class TicketRepository : ITicketRepository, ITicketNumberGenerator
             INSERT INTO Tickets (
                 Id, CreatedDate, Priority, RequesterName, RequesterEmail, Department,
                 ServiceStream, Environment, Category, Title, Description, TechnicalContext,
-                Status, AssignedSpecialist, TargetTatDays, TatDueDate, CompletedDate
+                Status, AssignedSpecialist, ReturnReason, ReturnedBy, ReturnedAt,
+                TargetTatDays, TatDueDate, CompletedDate, ClosedBy
             ) VALUES (
                 @Id, @CreatedDate, @Priority, @RequesterName, @RequesterEmail, @Department,
                 @ServiceStream, @Environment, @Category, @Title, @Description, @TechnicalContext,
-                @Status, @AssignedSpecialist, @TargetTatDays, @TatDueDate, @CompletedDate
+                @Status, @AssignedSpecialist, @ReturnReason, @ReturnedBy, @ReturnedAt,
+                @TargetTatDays, @TatDueDate, @CompletedDate, @ClosedBy
             )
             """,
             new
             {
-                Id = ticket.Id.Value,
+                ticket.Id,
                 CreatedDate = ticket.CreatedDate.ToString("O"),
                 Priority = ticket.Priority.ToString(),
-                RequesterName = ticket.Requester.Name,
-                RequesterEmail = ticket.Requester.Email,
-                Department = ticket.Requester.Department,
+                ticket.RequesterName,
+                ticket.RequesterEmail,
+                ticket.Department,
                 ServiceStream = ticket.ServiceStream.ToString(),
                 Environment = ticket.Environment.ToString(),
                 ticket.Category,
@@ -128,39 +134,56 @@ public sealed class TicketRepository : ITicketRepository, ITicketNumberGenerator
                 ticket.TechnicalContext,
                 Status = ticket.Status.ToString(),
                 ticket.AssignedSpecialist,
-                ticket.Sla.TargetTatDays,
-                TatDueDate = ticket.Sla.TatDueDate.ToString("O"),
-                CompletedDate = ticket.CompletedDate?.ToString("O")
+                ticket.ReturnReason,
+                ticket.ReturnedBy,
+                ReturnedAt = ticket.ReturnedAt?.ToString("O"),
+                ticket.TargetTatDays,
+                TatDueDate = ticket.TatDueDate.ToString("O"),
+                CompletedDate = ticket.CompletedDate?.ToString("O"),
+                ticket.ClosedBy
             }, tx);
 
         tx.Commit();
-        ticket.ClearDomainEvents();
     }
 
-    public async Task UpdateAsync(ServiceTicket ticket, CancellationToken ct = default)
+    public async Task UpdateAsync(Ticket ticket, CancellationToken ct = default)
     {
         using var connection = _factory.CreateConnection();
         using var tx = connection.BeginTransaction();
 
         await connection.ExecuteAsync("""
             UPDATE Tickets SET
+                Title = @Title,
+                Description = @Description,
+                TechnicalContext = @TechnicalContext,
                 Priority = @Priority,
                 Status = @Status,
                 AssignedSpecialist = @AssignedSpecialist,
+                ReturnReason = @ReturnReason,
+                ReturnedBy = @ReturnedBy,
+                ReturnedAt = @ReturnedAt,
                 TargetTatDays = @TargetTatDays,
                 TatDueDate = @TatDueDate,
-                CompletedDate = @CompletedDate
+                CompletedDate = @CompletedDate,
+                ClosedBy = @ClosedBy
             WHERE Id = @Id
             """,
             new
             {
-                Id = ticket.Id.Value,
+                ticket.Id,
+                ticket.Title,
+                ticket.Description,
+                ticket.TechnicalContext,
                 Priority = ticket.Priority.ToString(),
                 Status = ticket.Status.ToString(),
                 ticket.AssignedSpecialist,
-                ticket.Sla.TargetTatDays,
-                TatDueDate = ticket.Sla.TatDueDate.ToString("O"),
-                CompletedDate = ticket.CompletedDate?.ToString("O")
+                ticket.ReturnReason,
+                ticket.ReturnedBy,
+                ReturnedAt = ticket.ReturnedAt?.ToString("O"),
+                ticket.TargetTatDays,
+                TatDueDate = ticket.TatDueDate.ToString("O"),
+                CompletedDate = ticket.CompletedDate?.ToString("O"),
+                ticket.ClosedBy
             }, tx);
 
         if (ticket.Review is not null)
@@ -178,7 +201,7 @@ public sealed class TicketRepository : ITicketRepository, ITicketNumberGenerator
                 """,
                 new
                 {
-                    TicketId = ticket.Id.Value,
+                    TicketId = ticket.Id,
                     ticket.Review.ArchitectureReference,
                     ticket.Review.TechnicalAnalysis,
                     ticket.Review.OperationalRisks,
@@ -192,7 +215,7 @@ public sealed class TicketRepository : ITicketRepository, ITicketNumberGenerator
         {
             var exists = await connection.ExecuteScalarAsync<int>(
                 "SELECT COUNT(*) FROM Escalations WHERE TicketId = @TicketId AND EscalatedTeam = @Team",
-                new { TicketId = ticket.Id.Value, Team = ticket.Escalation.EscalatedTeam }, tx);
+                new { TicketId = ticket.Id, Team = ticket.Escalation.EscalatedTeam }, tx);
 
             if (exists == 0)
             {
@@ -202,7 +225,7 @@ public sealed class TicketRepository : ITicketRepository, ITicketNumberGenerator
                     """,
                     new
                     {
-                        TicketId = ticket.Id.Value,
+                        TicketId = ticket.Id,
                         ticket.Escalation.EscalatedTeam,
                         ticket.Escalation.EscalationReason,
                         EscalatedDate = ticket.Escalation.EscalatedDate.ToString("O")
@@ -219,7 +242,7 @@ public sealed class TicketRepository : ITicketRepository, ITicketNumberGenerator
                 """,
                 new
                 {
-                    TicketId = ticket.Id.Value,
+                    TicketId = ticket.Id,
                     msg.SenderName,
                     msg.SenderRole,
                     msg.MessageText,
@@ -237,7 +260,7 @@ public sealed class TicketRepository : ITicketRepository, ITicketNumberGenerator
                 """,
                 new
                 {
-                    TicketId = ticket.Id.Value,
+                    TicketId = ticket.Id,
                     note.Author,
                     note.NoteText,
                     CreatedDate = note.CreatedDate.ToString("O")
@@ -246,7 +269,6 @@ public sealed class TicketRepository : ITicketRepository, ITicketNumberGenerator
         }
 
         tx.Commit();
-        ticket.ClearDomainEvents();
     }
 
     private sealed class TicketRow
@@ -265,9 +287,13 @@ public sealed class TicketRepository : ITicketRepository, ITicketNumberGenerator
         public string? TechnicalContext { get; set; }
         public string Status { get; set; } = default!;
         public string? AssignedSpecialist { get; set; }
+        public string? ReturnReason { get; set; }
+        public string? ReturnedBy { get; set; }
+        public string? ReturnedAt { get; set; }
         public int TargetTatDays { get; set; }
         public string TatDueDate { get; set; } = default!;
         public string? CompletedDate { get; set; }
+        public string? ClosedBy { get; set; }
     }
 
     private sealed class TechnicalReviewRow

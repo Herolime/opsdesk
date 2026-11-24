@@ -1,10 +1,10 @@
-using OpsDesk.Domain.Aggregates;
+using OpsDesk.Application.Entities;
 
 namespace OpsDesk.Application.Common.Interfaces;
 
 public interface ITicketRepository
 {
-    Task<ServiceTicket?> GetByIdAsync(string id, CancellationToken ct = default);
-    Task AddAsync(ServiceTicket ticket, CancellationToken ct = default);
-    Task UpdateAsync(ServiceTicket ticket, CancellationToken ct = default);
+    Task<Ticket?> GetByIdAsync(string id, CancellationToken ct = default);
+    Task AddAsync(Ticket ticket, CancellationToken ct = default);
+    Task UpdateAsync(Ticket ticket, CancellationToken ct = default);
 }

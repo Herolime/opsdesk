@@ -1,6 +1,7 @@
 using MediatR;
 using OpsDesk.Application.Common.Interfaces;
 using OpsDesk.Application.Dtos;
+using OpsDesk.Common.Helpers;
 
 namespace OpsDesk.Application.Tickets.Queries;
 
@@ -12,7 +13,7 @@ public sealed record GetTicketsQuery(
     string? RequesterEmail = null,
     string? AssignedSpecialist = null,
     int Page = 1,
-    int PageSize = 25) : IRequest<PagedResult<TicketSummaryDto>>;
+    int PageSize = 25) : IRequest<PagedResponse<TicketSummaryDto>>;
 
 public sealed record GetTicketByIdQuery(string TicketId) : IRequest<TicketDetailDto?>;
 
@@ -25,7 +26,7 @@ public sealed record GetStreamMappingsQuery : IRequest<List<StreamSpecialistMapp
 public sealed record GetReportSummaryQuery : IRequest<ReportSummaryDto>;
 
 public sealed class TicketQueryHandlers :
-    IRequestHandler<GetTicketsQuery, PagedResult<TicketSummaryDto>>,
+    IRequestHandler<GetTicketsQuery, PagedResponse<TicketSummaryDto>>,
     IRequestHandler<GetTicketByIdQuery, TicketDetailDto?>,
     IRequestHandler<GetPendingTriageQuery, List<TriageTicketDto>>,
     IRequestHandler<SuggestSpecialistQuery, string?>,
@@ -36,7 +37,7 @@ public sealed class TicketQueryHandlers :
 
     public TicketQueryHandlers(ITicketQueryRepository queries) => _queries = queries;
 
-    public Task<PagedResult<TicketSummaryDto>> Handle(GetTicketsQuery q, CancellationToken ct) =>
+    public Task<PagedResponse<TicketSummaryDto>> Handle(GetTicketsQuery q, CancellationToken ct) =>
         _queries.GetTicketsAsync(q.Search, q.Status, q.ServiceStream, q.Priority, q.RequesterEmail, q.AssignedSpecialist, q.Page, q.PageSize);
 
     public Task<TicketDetailDto?> Handle(GetTicketByIdQuery q, CancellationToken ct) =>

@@ -1,9 +1,10 @@
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using OpsDesk.Application.Dtos;
+using OpsDesk.Application.Enums;
 using OpsDesk.Application.Tickets.Commands;
 using OpsDesk.Application.Tickets.Queries;
-using OpsDesk.Domain.Enums;
+using OpsDesk.Common.Helpers;
 
 namespace OpsDesk.Api.Controllers;
 
@@ -16,7 +17,7 @@ public sealed class TicketsController : ControllerBase
     public TicketsController(IMediator mediator) => _mediator = mediator;
 
     [HttpGet]
-    public async Task<ActionResult<PagedResult<TicketSummaryDto>>> GetTickets(
+    public async Task<ActionResult<PagedResponse<TicketSummaryDto>>> GetTickets(
         [FromQuery] string? search = null,
         [FromQuery] string? status = null,
         [FromQuery] string? serviceStream = null,
@@ -49,6 +50,41 @@ public sealed class TicketsController : ControllerBase
     public async Task<IActionResult> Assign(string id, [FromBody] AssignSpecialistRequest request)
     {
         await _mediator.Send(new AssignSpecialistCommand(id, request.SpecialistName));
+        return NoContent();
+    }
+
+    [HttpPost("{id}/return-to-requester")]
+    public async Task<IActionResult> ReturnToRequester(string id, [FromBody] ReturnToRequesterRequest request)
+    {
+        await _mediator.Send(new ReturnTicketToRequesterCommand(id, request.ReturnedBy, request.Reason));
+        return NoContent();
+    }
+
+    [HttpPut("{id}/resubmit")]
+    public async Task<IActionResult> Resubmit(string id, [FromBody] ResubmitRequest request)
+    {
+        await _mediator.Send(new ResubmitTicketCommand(id, request.Title, request.Description, request.TechnicalContext));
+        return NoContent();
+    }
+
+    [HttpPost("{id}/submit-for-approval")]
+    public async Task<IActionResult> SubmitForApproval(string id, [FromBody] SubmitForApprovalRequest request)
+    {
+        await _mediator.Send(new SubmitForApprovalCommand(id, request.SubmittedBy));
+        return NoContent();
+    }
+
+    [HttpPost("{id}/return-to-progress")]
+    public async Task<IActionResult> ReturnToProgress(string id, [FromBody] ReturnToProgressRequest request)
+    {
+        await _mediator.Send(new ReturnTicketToProgressCommand(id, request.ReturnedBy, request.Feedback));
+        return NoContent();
+    }
+
+    [HttpPost("{id}/approve-close")]
+    public async Task<IActionResult> ApproveAndClose(string id, [FromBody] ApproveCloseRequest request)
+    {
+        await _mediator.Send(new ApproveAndCloseTicketCommand(id, request.ClosedBy, request.ResolutionSummary));
         return NoContent();
     }
 
@@ -96,6 +132,11 @@ public sealed class TicketsController : ControllerBase
 }
 
 public sealed record AssignSpecialistRequest(string SpecialistName);
+public sealed record ReturnToRequesterRequest(string ReturnedBy, string Reason);
+public sealed record ResubmitRequest(string Title, string Description, string? TechnicalContext);
+public sealed record SubmitForApprovalRequest(string SubmittedBy);
+public sealed record ReturnToProgressRequest(string ReturnedBy, string Feedback);
+public sealed record ApproveCloseRequest(string ClosedBy, string? ResolutionSummary = null);
 public sealed record UpdateStatusRequest(TicketStatus NewStatus);
 public sealed record ChangePriorityRequest(Priority NewPriority);
 public sealed record AddMessageRequest(string SenderName, string SenderRole, string MessageText);

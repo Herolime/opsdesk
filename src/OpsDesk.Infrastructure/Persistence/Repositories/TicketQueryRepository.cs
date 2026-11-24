@@ -2,8 +2,10 @@ using System.Text;
 using Dapper;
 using OpsDesk.Application.Common.Interfaces;
 using OpsDesk.Application.Dtos;
+using OpsDesk.Common.Helpers;
+using OpsDesk.Infrastructure.Persistence.Db;
 
-namespace OpsDesk.Data.Repositories;
+namespace OpsDesk.Infrastructure.Persistence.Repositories;
 
 public sealed class TicketQueryRepository : ITicketQueryRepository
 {
@@ -11,7 +13,7 @@ public sealed class TicketQueryRepository : ITicketQueryRepository
 
     public TicketQueryRepository(IDbConnectionFactory factory) => _factory = factory;
 
-    public async Task<PagedResult<TicketSummaryDto>> GetTicketsAsync(
+    public async Task<PagedResponse<TicketSummaryDto>> GetTicketsAsync(
         string? search = null,
         string? status = null,
         string? serviceStream = null,
@@ -64,14 +66,14 @@ public sealed class TicketQueryRepository : ITicketQueryRepository
         var items = (await connection.QueryAsync<TicketSummaryDto>($"""
             SELECT Id, CreatedDate, Priority, RequesterName, RequesterEmail, Department,
                    ServiceStream, Environment, Category, Title, Status, AssignedSpecialist,
-                   TatDueDate, CompletedDate
+                   ReturnReason, ReturnedBy, ReturnedAt, TatDueDate, CompletedDate, ClosedBy
             FROM Tickets
             {where}
             ORDER BY CreatedDate DESC
             LIMIT @Limit OFFSET @Offset
             """, parameters)).ToList();
 
-        return new PagedResult<TicketSummaryDto>
+        return new PagedResponse<TicketSummaryDto>
         {
             Total = total,
             Page = page,
@@ -86,7 +88,8 @@ public sealed class TicketQueryRepository : ITicketQueryRepository
         var detail = await connection.QuerySingleOrDefaultAsync<TicketDetailDto>("""
             SELECT Id, CreatedDate, Priority, RequesterName, RequesterEmail, Department,
                    ServiceStream, Environment, Category, Title, Description, TechnicalContext,
-                   Status, AssignedSpecialist, TatDueDate, CompletedDate
+                   Status, AssignedSpecialist, ReturnReason, ReturnedBy, ReturnedAt,
+                   TatDueDate, CompletedDate, ClosedBy
             FROM Tickets WHERE Id = @Id
             """, new { Id = id });
 
@@ -153,7 +156,7 @@ public sealed class TicketQueryRepository : ITicketQueryRepository
         var tickets = (await connection.QueryAsync<TicketSummaryDto>("""
             SELECT Id, CreatedDate, Priority, RequesterName, RequesterEmail, Department,
                    ServiceStream, Environment, Category, Title, Status, AssignedSpecialist,
-                   TatDueDate, CompletedDate
+                   ReturnReason, ReturnedBy, ReturnedAt, TatDueDate, CompletedDate, ClosedBy
             FROM Tickets
             """)).ToList();
 
@@ -165,8 +168,9 @@ public sealed class TicketQueryRepository : ITicketQueryRepository
         {
             TotalTickets = tickets.Count,
             OpenTickets = tickets.Count(t => t.Status == "Open"),
+            ReturnedTickets = tickets.Count(t => t.Status == "ReturnedToRequester"),
             InProgressTickets = tickets.Count(t => t.Status == "InProgress"),
-            PendingReviewTickets = tickets.Count(t => t.Status == "PendingReview"),
+            PendingApprovalTickets = tickets.Count(t => t.Status == "PendingApproval"),
             ResolvedTickets = resolved.Count,
             AtRiskTickets = tickets.Count(t => t.IsOverdue || t.IsAtRisk),
             OnTimeRate = onTimeRate,
@@ -189,7 +193,8 @@ public sealed class TicketQueryRepository : ITicketQueryRepository
                     return new SpecialistThroughputDto
                     {
                         SpecialistName = g.Key,
-                        AssignedCount = g.Count(),
+                        AssignedCount = g.Count(x => x.Status is "InProgress" or "PendingApproval"),
+                        PendingApprovalCount = g.Count(x => x.Status == "PendingApproval"),
                         ResolvedCount = specResolved.Count,
                         OnTimeRate = specResolved.Count == 0 ? 100.0 : Math.Round(100.0 * specOnTime / specResolved.Count, 1)
                     };

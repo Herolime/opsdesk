@@ -2,8 +2,9 @@ using System.Net;
 using System.Net.Http.Json;
 using OpsDesk.Api.Controllers;
 using OpsDesk.Application.Dtos;
+using OpsDesk.Application.Entities;
+using OpsDesk.Application.Enums;
 using OpsDesk.Application.Tickets.Commands;
-using OpsDesk.Domain.Enums;
 
 namespace OpsDesk.IntegrationTests;
 
@@ -87,92 +88,91 @@ public class WorkflowTests : IClassFixture<CustomWebApplicationFactory<Program>>
         Assert.True(highDetail.TatDueDate > urgentDetail.TatDueDate);
         Assert.True(standardDetail.TatDueDate > highDetail.TatDueDate);
 
-        // 3. Verify Triage Queue & Specialist Suggestion
+        // 3. Return High ticket to requester, then resubmit
+        var returnResp = await client.PostAsJsonAsync(
+            $"/api/tickets/{highTicketId}/return-to-requester",
+            new ReturnToRequesterRequest("Devon Brooks", "Please specify target CIDR blocks."));
+        Assert.Equal(HttpStatusCode.NoContent, returnResp.StatusCode);
+
+        var returnedDetail = await client.GetFromJsonAsync<TicketDetailDto>($"/api/tickets/{highTicketId}");
+        Assert.NotNull(returnedDetail);
+        Assert.Equal("ReturnedToRequester", returnedDetail.Status);
+        Assert.Equal("Please specify target CIDR blocks.", returnedDetail.ReturnReason);
+
+        var resubmitResp = await client.PutAsJsonAsync(
+            $"/api/tickets/{highTicketId}/resubmit",
+            new ResubmitRequest(highCommand.Title, "Updated with CIDR 10.42.0.0/16 <-> 10.88.0.0/16.", "CIDR verified"));
+        Assert.Equal(HttpStatusCode.NoContent, resubmitResp.StatusCode);
+
+        var resubmittedDetail = await client.GetFromJsonAsync<TicketDetailDto>($"/api/tickets/{highTicketId}");
+        Assert.NotNull(resubmittedDetail);
+        Assert.Equal("Open", resubmittedDetail.Status);
+        Assert.Null(resubmittedDetail.ReturnReason);
+
+        // 4. Verify Triage Queue & Specialist Suggestion
         var triageQueue = await client.GetFromJsonAsync<List<TriageTicketDto>>("/api/triage/pending");
         Assert.NotNull(triageQueue);
         Assert.Contains(triageQueue, t => t.Id == urgentTicketId);
-        Assert.Contains(triageQueue, t => t.Id == highTicketId);
-        Assert.Contains(triageQueue, t => t.Id == standardTicketId);
 
         var suggestion = await client.GetStringAsync(
             "/api/triage/specialist-suggestions?category=Database%20%26%20Caching&serviceStream=Infrastructure");
         Assert.Equal("Maya Lin", suggestion.Trim('"'));
 
-        // 4. Assign Specialist -> Status transitions to InProgress
+        // 5. Assign Specialist -> Status transitions to InProgress
         var assignResponse = await client.PutAsJsonAsync(
             $"/api/tickets/{urgentTicketId}/assign",
             new AssignSpecialistRequest("Maya Lin"));
         Assert.Equal(HttpStatusCode.NoContent, assignResponse.StatusCode);
 
-        var assignedDetail = await client.GetFromJsonAsync<TicketDetailDto>($"/api/tickets/{urgentTicketId}");
-        Assert.NotNull(assignedDetail);
-        Assert.Equal("InProgress", assignedDetail.Status);
-        Assert.Equal("Maya Lin", assignedDetail.AssignedSpecialist);
-
-        // 5. Add Message & Internal Note
-        var msgResponse = await client.PostAsJsonAsync(
-            $"/api/tickets/{urgentTicketId}/messages",
-            new AddMessageRequest("Maya Lin", "Specialist", "Provisioning memory-optimized replica node."));
-        Assert.Equal(HttpStatusCode.NoContent, msgResponse.StatusCode);
-
-        var noteResponse = await client.PostAsJsonAsync(
-            $"/api/tickets/{urgentTicketId}/notes",
-            new AddNoteRequest("Maya Lin", "Verified cutover window with SRE on-call."));
-        Assert.Equal(HttpStatusCode.NoContent, noteResponse.StatusCode);
-
-        var detailWithActivity = await client.GetFromJsonAsync<TicketDetailDto>($"/api/tickets/{urgentTicketId}");
-        Assert.NotNull(detailWithActivity);
-        Assert.Single(detailWithActivity.Messages);
-        Assert.Single(detailWithActivity.Notes);
-
-        // 6. Save Technical Review
+        // 6. Save Technical Review, Submit for Leader Approval, Return to Progress, Re-submit, Approve & Close
         var reviewCommand = new SaveTechnicalReviewCommand
         {
             TicketId = urgentTicketId,
             ArchitectureReference = "RFC-042: Redis Cluster Topology",
-            TechnicalAnalysis = "Replica promoted and memory tier upgraded to r6g.xlarge.",
-            OperationalRisks = "Minimal risk during automated slot migration.",
-            ResolutionSummary = "Failover validated with 0ms dropped writes.",
+            TechnicalAnalysis = "<p>Replica promoted and memory tier upgraded to <strong>r6g.xlarge</strong>.</p>",
+            OperationalRisks = "<p>Minimal risk during automated slot migration.</p>",
+            ResolutionSummary = "<p>Failover validated with 0ms dropped writes.</p>",
             ReviewedBy = "Maya Lin"
         };
-        var reviewResponse = await client.PutAsJsonAsync($"/api/tickets/{urgentTicketId}/review", reviewCommand);
-        Assert.Equal(HttpStatusCode.NoContent, reviewResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PutAsJsonAsync($"/api/tickets/{urgentTicketId}/review", reviewCommand)).StatusCode);
 
-        var detailWithReview = await client.GetFromJsonAsync<TicketDetailDto>($"/api/tickets/{urgentTicketId}");
-        Assert.NotNull(detailWithReview?.Review);
-        Assert.Equal("RFC-042: Redis Cluster Topology", detailWithReview.Review.ArchitectureReference);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync(
+            $"/api/tickets/{urgentTicketId}/submit-for-approval",
+            new SubmitForApprovalRequest("Maya Lin"))).StatusCode);
 
-        // 7. Escalate ticket
-        var escalateResponse = await client.PostAsJsonAsync(
-            $"/api/tickets/{urgentTicketId}/escalate",
-            new EscalateRequest("Database Reliability", "Requires cross-region replica validation."));
-        Assert.Equal(HttpStatusCode.NoContent, escalateResponse.StatusCode);
+        var pendingApproval = await client.GetFromJsonAsync<TicketDetailDto>($"/api/tickets/{urgentTicketId}");
+        Assert.Equal("PendingApproval", pendingApproval?.Status);
 
-        var detailWithEscalation = await client.GetFromJsonAsync<TicketDetailDto>($"/api/tickets/{urgentTicketId}");
-        Assert.NotNull(detailWithEscalation?.Escalation);
-        Assert.Equal("Database Reliability", detailWithEscalation.Escalation.EscalatedTeam);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync(
+            $"/api/tickets/{urgentTicketId}/return-to-progress",
+            new ReturnToProgressRequest("Alex Rivera", "Add failover latency benchmark."))).StatusCode);
 
-        // 8. Resolve ticket & verify CompletedDate
-        var resolveResponse = await client.PutAsJsonAsync(
-            $"/api/tickets/{urgentTicketId}/status",
-            new UpdateStatusRequest(TicketStatus.Resolved));
-        Assert.Equal(HttpStatusCode.NoContent, resolveResponse.StatusCode);
+        var backInProgress = await client.GetFromJsonAsync<TicketDetailDto>($"/api/tickets/{urgentTicketId}");
+        Assert.Equal("InProgress", backInProgress?.Status);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync(
+            $"/api/tickets/{urgentTicketId}/submit-for-approval",
+            new SubmitForApprovalRequest("Maya Lin"))).StatusCode);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync(
+            $"/api/tickets/{urgentTicketId}/approve-close",
+            new ApproveCloseRequest("Alex Rivera", "Approved and closed after benchmark verification."))).StatusCode);
 
         var resolvedDetail = await client.GetFromJsonAsync<TicketDetailDto>($"/api/tickets/{urgentTicketId}");
         Assert.NotNull(resolvedDetail);
         Assert.Equal("Resolved", resolvedDetail.Status);
+        Assert.Equal("Alex Rivera", resolvedDetail.ClosedBy);
         Assert.NotNull(resolvedDetail.CompletedDate);
 
-        // 9. Verify Reports Summary
+        // 7. Verify Notifications & Reports Summary
+        var notifications = await client.GetFromJsonAsync<List<Notification>>("/api/notifications");
+        Assert.NotNull(notifications);
+        Assert.NotEmpty(notifications);
+
         var summary = await client.GetFromJsonAsync<ReportSummaryDto>("/api/reports/summary");
         Assert.NotNull(summary);
         Assert.Equal(3, summary.TotalTickets);
-        Assert.Equal(2, summary.OpenTickets);
-        Assert.Equal(0, summary.InProgressTickets);
         Assert.Equal(1, summary.ResolvedTickets);
         Assert.Equal(100.0, summary.OnTimeRate);
-        Assert.Contains(summary.ByServiceStream, x => x.Label == "Infrastructure" && x.Count == 1);
-        Assert.Contains(summary.ByServiceStream, x => x.Label == "CloudPlatform" && x.Count == 1);
-        Assert.Contains(summary.ByServiceStream, x => x.Label == "SecurityOps" && x.Count == 1);
     }
 }

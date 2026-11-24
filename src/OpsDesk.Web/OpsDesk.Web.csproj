@@ -14,7 +14,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\OpsDesk.Application\OpsDesk.Application.csproj" />
-    <ProjectReference Include="..\OpsDesk.Data\OpsDesk.Data.csproj" />
+    <ProjectReference Include="..\OpsDesk.Infrastructure\OpsDesk.Infrastructure.csproj" />
+    <ProjectReference Include="..\OpsDesk.Common\OpsDesk.Common.csproj" />
   </ItemGroup>
 
 </Project>

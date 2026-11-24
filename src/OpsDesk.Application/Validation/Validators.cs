@@ -16,6 +16,26 @@ public sealed class SubmitRequestCommandValidator : AbstractValidator<SubmitRequ
     }
 }
 
+public sealed class ReturnTicketToRequesterCommandValidator : AbstractValidator<ReturnTicketToRequesterCommand>
+{
+    public ReturnTicketToRequesterCommandValidator()
+    {
+        RuleFor(x => x.TicketId).NotEmpty();
+        RuleFor(x => x.ReturnedBy).NotEmpty();
+        RuleFor(x => x.Reason).NotEmpty().MaximumLength(1000);
+    }
+}
+
+public sealed class ReturnTicketToProgressCommandValidator : AbstractValidator<ReturnTicketToProgressCommand>
+{
+    public ReturnTicketToProgressCommandValidator()
+    {
+        RuleFor(x => x.TicketId).NotEmpty();
+        RuleFor(x => x.ReturnedBy).NotEmpty();
+        RuleFor(x => x.Feedback).NotEmpty().MaximumLength(1000);
+    }
+}
+
 public sealed class AssignSpecialistCommandValidator : AbstractValidator<AssignSpecialistCommand>
 {
     public AssignSpecialistCommandValidator()

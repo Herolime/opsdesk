@@ -1,10 +1,11 @@
 using OpsDesk.Application.Dtos;
+using OpsDesk.Common.Helpers;
 
 namespace OpsDesk.Application.Common.Interfaces;
 
 public interface ITicketQueryRepository
 {
-    Task<PagedResult<TicketSummaryDto>> GetTicketsAsync(
+    Task<PagedResponse<TicketSummaryDto>> GetTicketsAsync(
         string? search = null,
         string? status = null,
         string? serviceStream = null,

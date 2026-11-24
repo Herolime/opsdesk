@@ -1,7 +1,8 @@
 using System.Text.Json.Serialization;
 using OpsDesk.Api.Middleware;
 using OpsDesk.Application;
-using OpsDesk.Data;
+using OpsDesk.Infrastructure;
+using OpsDesk.Infrastructure.Email;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,8 +16,9 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection(EmailSettings.SectionName));
 builder.Services.AddApplication();
-builder.Services.AddData(sp =>
+builder.Services.AddOpsDeskInfrastructure(sp =>
     sp.GetRequiredService<IConfiguration>().GetConnectionString("DefaultConnection")
     ?? "Data Source=opsdesk.db");
 
@@ -25,7 +27,7 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var seedDemo = !app.Environment.IsEnvironment("Testing");
-    OpsDesk.Data.DependencyInjection.InitializeSchema(scope.ServiceProvider, seedDemoTickets: seedDemo);
+    OpsDesk.Infrastructure.DependencyInjection.InitializeSchema(scope.ServiceProvider, seedDemoTickets: seedDemo);
 }
 
 if (app.Environment.IsDevelopment())

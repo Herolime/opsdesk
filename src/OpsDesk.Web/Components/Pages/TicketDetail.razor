@@ -3,6 +3,7 @@
 @inject IMediator Mediator
 @inject RoleState RoleState
 @inject NavigationManager Navigation
+@inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
 <PageTitle>@Id — OpsDesk Workspace</PageTitle>
@@ -50,18 +51,28 @@ else
 
                 @if (RoleState.IsOperationalStaff)
                 {
-                    <MudStack Row="true" Spacing="2">
-                        @if (_ticket.Status != "Resolved")
+                    <MudStack Row="true" Spacing="2" Class="flex-wrap">
+                        @if (_ticket.Status == "InProgress")
                         {
-                            <MudButton Variant="Variant.Outlined" Color="Color.Warning" OnClick="@(() => UpdateStatusAsync(TicketStatus.PendingReview))">
-                                Submit for Review
+                            <MudButton Variant="Variant.Outlined" Color="Color.Warning" OnClick="ReturnToRequesterAsync">
+                                Return to Requester
                             </MudButton>
-                            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => UpdateStatusAsync(TicketStatus.Resolved))"
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SubmitForApprovalAsync"
                                        Style="color: #042F2E; font-weight: 700;">
-                                Resolve Ticket
+                                Submit for Approval
                             </MudButton>
                         }
-                        else
+                        else if (_ticket.Status == "PendingApproval")
+                        {
+                            <MudButton Variant="Variant.Outlined" Color="Color.Warning" OnClick="ReturnToProgressAsync">
+                                Return to Specialist
+                            </MudButton>
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ApproveAndCloseAsync"
+                                       Style="color: #042F2E; font-weight: 700;">
+                                Approve &amp; Close
+                            </MudButton>
+                        }
+                        else if (_ticket.Status == "Resolved")
                         {
                             <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="@(() => UpdateStatusAsync(TicketStatus.InProgress))">
                                 Reopen Ticket
@@ -414,5 +425,60 @@ else
         _escalatedTeam = null;
         _escalationReason = null;
         await LoadTicketAsync();
+    }
+
+    private async Task ReturnToRequesterAsync()
+    {
+        var parameters = new DialogParameters<ReturnWithFeedbackDialog>
+        {
+            { x => x.Title, $"Return {Id} to Requester" },
+            { x => x.Prompt, "Explain what additional details or clarification are needed from the requester." }
+        };
+        var dialog = await DialogService.ShowAsync<ReturnWithFeedbackDialog>("Return Ticket", parameters);
+        var result = await dialog.Result;
+        if (result is not null && !result.Canceled && result.Data is string reason && !string.IsNullOrWhiteSpace(reason))
+        {
+            await Mediator.Send(new ReturnTicketToRequesterCommand(Id, RoleState.CurrentDisplayName, reason));
+            Snackbar.Add("Ticket returned to requester.", Severity.Warning);
+            await LoadTicketAsync();
+        }
+    }
+
+    private async Task SubmitForApprovalAsync()
+    {
+        await SaveReviewAsync();
+        await Mediator.Send(new SubmitForApprovalCommand(Id, RoleState.CurrentDisplayName));
+        Snackbar.Add("Submitted for Operations Lead approval.", Severity.Success);
+        await LoadTicketAsync();
+    }
+
+    private async Task ReturnToProgressAsync()
+    {
+        var parameters = new DialogParameters<ReturnWithFeedbackDialog>
+        {
+            { x => x.Title, $"Return {Id} to Specialist" },
+            { x => x.Prompt, "Provide feedback on what needs to be revised in the technical analysis." }
+        };
+        var dialog = await DialogService.ShowAsync<ReturnWithFeedbackDialog>("Return to Specialist", parameters);
+        var result = await dialog.Result;
+        if (result is not null && !result.Canceled && result.Data is string feedback && !string.IsNullOrWhiteSpace(feedback))
+        {
+            await Mediator.Send(new ReturnTicketToProgressCommand(Id, RoleState.CurrentDisplayName, feedback));
+            Snackbar.Add("Ticket returned to specialist.", Severity.Warning);
+            await LoadTicketAsync();
+        }
+    }
+
+    private async Task ApproveAndCloseAsync()
+    {
+        var dialog = await DialogService.ShowAsync<TicketClosureDialog>("Approve & Close");
+        var result = await dialog.Result;
+        if (result is not null && !result.Canceled)
+        {
+            var summary = result.Data as string;
+            await Mediator.Send(new ApproveAndCloseTicketCommand(Id, RoleState.CurrentDisplayName, summary));
+            Snackbar.Add($"Ticket {Id} approved and resolved.", Severity.Success);
+            await LoadTicketAsync();
+        }
     }
 }

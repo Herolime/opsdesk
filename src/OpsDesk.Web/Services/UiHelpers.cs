@@ -15,16 +15,18 @@ public static class UiHelpers
     public static Color StatusColor(string? status) => status?.ToLowerInvariant() switch
     {
         "open" => Color.Info,
+        "returnedtorequester" => Color.Warning,
         "inprogress" => Color.Secondary,
-        "pendingreview" => Color.Warning,
+        "pendingapproval" => Color.Tertiary,
         "resolved" => Color.Success,
         _ => Color.Default
     };
 
     public static string StatusLabel(string? status) => status?.ToLowerInvariant() switch
     {
+        "returnedtorequester" => "Returned to Requester",
         "inprogress" => "In Progress",
-        "pendingreview" => "Pending Review",
+        "pendingapproval" => "Pending Approval",
         _ => status ?? "Unknown"
     };
 

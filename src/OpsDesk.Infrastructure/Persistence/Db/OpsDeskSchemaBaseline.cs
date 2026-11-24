@@ -1,9 +1,9 @@
 using Dapper;
 using OpsDesk.Application.Common.Interfaces;
 
-namespace OpsDesk.Data.Db;
+namespace OpsDesk.Infrastructure.Persistence.Db;
 
-public static class SchemaInitializer
+public static class OpsDeskSchemaBaseline
 {
     public static void Initialize(IDbConnectionFactory factory)
     {
@@ -29,9 +29,13 @@ public static class SchemaInitializer
             TechnicalContext TEXT,
             Status TEXT NOT NULL,
             AssignedSpecialist TEXT,
+            ReturnReason TEXT,
+            ReturnedBy TEXT,
+            ReturnedAt TEXT,
             TargetTatDays INTEGER NOT NULL,
             TatDueDate TEXT NOT NULL,
-            CompletedDate TEXT
+            CompletedDate TEXT,
+            ClosedBy TEXT
         );
 
         CREATE TABLE IF NOT EXISTS TechnicalReviews (
@@ -78,6 +82,17 @@ public static class SchemaInitializer
             UNIQUE(CategoryName, ServiceStream)
         );
 
+        CREATE TABLE IF NOT EXISTS Notifications (
+            Id INTEGER PRIMARY KEY AUTOINCREMENT,
+            TicketId TEXT NOT NULL,
+            RecipientEmail TEXT NOT NULL,
+            Title TEXT NOT NULL,
+            Message TEXT NOT NULL,
+            Category TEXT NOT NULL,
+            IsRead INTEGER NOT NULL DEFAULT 0,
+            CreatedDate TEXT NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS Sequence (
             Id INTEGER PRIMARY KEY CHECK (Id = 1),
             LastValue INTEGER NOT NULL
@@ -114,14 +129,18 @@ public static class SchemaInitializer
         var now = DateTime.UtcNow;
 
         connection.Execute("""
-            INSERT INTO Tickets (Id, CreatedDate, Priority, RequesterName, RequesterEmail, Department, ServiceStream, Environment, Category, Title, Description, TechnicalContext, Status, AssignedSpecialist, TargetTatDays, TatDueDate, CompletedDate)
-            VALUES
-            ('OPS-2041', @D1, 'Urgent', 'Jordan Chen', 'jordan.chen@opsdesk.io', 'Platform Engineering', 'Infrastructure', 'Production', 'Database & Caching', 'Production Redis Cluster Memory Expansion & Failover Test', 'Primary Redis cluster in us-east-1 is sustained at 86% memory utilization during peak traffic. Need memory tier upgrade and failover verification.', 'Cluster ID: redis-prod-01 | Current node type: cache.r6g.large', 'InProgress', 'Maya Lin', 1, @Due1, NULL),
-            ('OPS-2042', @D2, 'High', 'Elena Rostova', 'elena.rostova@opsdesk.io', 'Data Engineering', 'CloudPlatform', 'Staging', 'Networking & VPC', 'Staging Environment VPC Peering for Analytics Cluster', 'Establish private VPC peering between staging-app-vpc and analytics-warehouse-vpc with restricted CIDR routing.', 'CIDR 10.42.0.0/16 <-> 10.88.0.0/16', 'Open', NULL, 3, @Due2, NULL),
-            ('OPS-2043', @D3, 'Standard', 'Jordan Chen', 'jordan.chen@opsdesk.io', 'Platform Engineering', 'SecurityOps', 'Production', 'IAM & SSO', 'SSO SAML Provisioning for Internal Telemetry Portal', 'Configure Okta SAML 2.0 application integration and RBAC group claims for the new observability dashboard.', 'Group claims: ops-eng, ops-leads', 'PendingReview', 'Samira Patel', 7, @Due3, NULL),
-            ('OPS-2044', @D4, 'High', 'Marcus Vance', 'marcus.vance@opsdesk.io', 'Developer Experience', 'CloudPlatform', 'Production', 'CI/CD & Pipelines', 'CI/CD Self-Hosted Runner Autoscale Quota Increase', 'Build queue wait times exceeded 12 minutes during release windows. Requesting runner pool max-concurrency bump from 20 to 45.', 'GitHub Actions ARC runner-set-prod', 'InProgress', 'Devon Brooks', 3, @Due4, NULL),
-            ('OPS-2045', @D5, 'Urgent', 'Jordan Chen', 'jordan.chen@opsdesk.io', 'Platform Engineering', 'SecurityOps', 'Production', 'Secrets & Certificates', 'Production Kubernetes Ingress TLS Certificate Renewal', 'Automated cert-manager ACME challenge failed due to DNS TXT propagation delay. Manual validation needed before expiry.', 'Namespace: ingress-nginx | Domain: api.opsdesk.io', 'Open', NULL, 1, @Due5, NULL),
-            ('OPS-2046', @D6, 'Standard', 'Priya Nair', 'priya.nair@opsdesk.io', 'Analytics', 'DataAnalytics', 'Production', 'Data Warehouse & ETL', 'Read-Only Warehouse Replica Access for BI Service', 'Provision least-privilege read-only service role for quarterly SLA reporting pipelines.', 'Target schema: ops_metrics_ro', 'Resolved', 'Lucas Vance', 7, @Due6, @Done6);
+            INSERT INTO Tickets (
+                Id, CreatedDate, Priority, RequesterName, RequesterEmail, Department,
+                ServiceStream, Environment, Category, Title, Description, TechnicalContext,
+                Status, AssignedSpecialist, ReturnReason, ReturnedBy, ReturnedAt,
+                TargetTatDays, TatDueDate, CompletedDate, ClosedBy
+            ) VALUES
+            ('OPS-2041', @D1, 'Urgent', 'Jordan Chen', 'jordan.chen@opsdesk.io', 'Platform Engineering', 'Infrastructure', 'Production', 'Database & Caching', 'Production Redis Cluster Memory Expansion & Failover Test', 'Primary Redis cluster in us-east-1 is sustained at 86% memory utilization during peak traffic. Need memory tier upgrade and failover verification.', 'Cluster ID: redis-prod-01 | Current node type: cache.r6g.large', 'InProgress', 'Maya Lin', NULL, NULL, NULL, 1, @Due1, NULL, NULL),
+            ('OPS-2042', @D2, 'High', 'Elena Rostova', 'elena.rostova@opsdesk.io', 'Data Engineering', 'CloudPlatform', 'Staging', 'Networking & VPC', 'Staging Environment VPC Peering for Analytics Cluster', 'Establish private VPC peering between staging-app-vpc and analytics-warehouse-vpc with restricted CIDR routing.', 'CIDR 10.42.0.0/16 <-> 10.88.0.0/16', 'Open', NULL, NULL, NULL, NULL, 3, @Due2, NULL, NULL),
+            ('OPS-2043', @D3, 'Standard', 'Jordan Chen', 'jordan.chen@opsdesk.io', 'Platform Engineering', 'SecurityOps', 'Production', 'IAM & SSO', 'SSO SAML Provisioning for Internal Telemetry Portal', 'Configure Okta SAML 2.0 application integration and RBAC group claims for the new observability dashboard.', 'Group claims: ops-eng, ops-leads', 'PendingApproval', 'Samira Patel', NULL, NULL, NULL, 7, @Due3, NULL, NULL),
+            ('OPS-2044', @D4, 'High', 'Marcus Vance', 'marcus.vance@opsdesk.io', 'Developer Experience', 'CloudPlatform', 'Production', 'CI/CD & Pipelines', 'CI/CD Self-Hosted Runner Autoscale Quota Increase', 'Build queue wait times exceeded 12 minutes during release windows. Requesting runner pool max-concurrency bump from 20 to 45.', 'GitHub Actions ARC runner-set-prod', 'InProgress', 'Devon Brooks', NULL, NULL, NULL, 3, @Due4, NULL, NULL),
+            ('OPS-2045', @D5, 'Urgent', 'Jordan Chen', 'jordan.chen@opsdesk.io', 'Platform Engineering', 'SecurityOps', 'Production', 'Secrets & Certificates', 'Production Kubernetes Ingress TLS Certificate Renewal', 'Automated cert-manager ACME challenge failed due to DNS TXT propagation delay. Manual validation needed before expiry.', 'Namespace: ingress-nginx | Domain: api.opsdesk.io', 'ReturnedToRequester', NULL, 'Please attach the DNS zone ID and confirm whether wildcard SANs are required.', 'Devon Brooks', @Ret5, 1, @Due5, NULL, NULL),
+            ('OPS-2046', @D6, 'Standard', 'Priya Nair', 'priya.nair@opsdesk.io', 'Analytics', 'DataAnalytics', 'Production', 'Data Warehouse & ETL', 'Read-Only Warehouse Replica Access for BI Service', 'Provision least-privilege read-only service role for quarterly SLA reporting pipelines.', 'Target schema: ops_metrics_ro', 'Resolved', 'Lucas Vance', NULL, NULL, NULL, 7, @Due6, @Done6, 'Alex Rivera');
             """,
             new
             {
@@ -134,6 +153,7 @@ public static class SchemaInitializer
                 D4 = now.AddDays(-1).ToString("O"),
                 Due4 = now.AddDays(2).ToString("O"),
                 D5 = now.AddHours(-2).ToString("O"),
+                Ret5 = now.AddHours(-1).ToString("O"),
                 Due5 = now.AddDays(1).ToString("O"),
                 D6 = now.AddDays(-5).ToString("O"),
                 Due6 = now.AddDays(2).ToString("O"),
@@ -158,6 +178,19 @@ public static class SchemaInitializer
             ('OPS-2041', 'Maya Lin', 'Confirmed maintenance window with SRE on-call for 02:00 UTC cutover.', @N1);
             """,
             new { N1 = now.AddHours(-9).ToString("O") });
+
+        connection.Execute("""
+            INSERT INTO Notifications (TicketId, RecipientEmail, Title, Message, Category, IsRead, CreatedDate) VALUES
+            ('OPS-2045', 'jordan.chen@opsdesk.io', 'Action Required: Ticket Returned', 'OPS-2045 was returned by Devon Brooks: Please attach the DNS zone ID and confirm whether wildcard SANs are required.', 'Returned', 0, @N1),
+            ('OPS-2043', 'alex.rivera@opsdesk.io', 'Pending Leader Approval', 'OPS-2043 technical analysis was submitted by Samira Patel for approval.', 'Approval', 0, @N2),
+            ('OPS-2041', 'maya.lin@opsdesk.io', 'SLA Threshold Alert', 'OPS-2041 is within 8 hours of target resolution.', 'SLA', 0, @N3);
+            """,
+            new
+            {
+                N1 = now.AddHours(-1).ToString("O"),
+                N2 = now.AddHours(-3).ToString("O"),
+                N3 = now.AddHours(-2).ToString("O")
+            });
 
         connection.Execute("UPDATE Sequence SET LastValue = 2046 WHERE Id = 1;");
     }

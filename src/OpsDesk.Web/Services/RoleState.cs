@@ -1,5 +1,5 @@
 using Microsoft.JSInterop;
-using OpsDesk.Domain.Enums;
+using OpsDesk.Application.Enums;
 
 namespace OpsDesk.Web.Services;
 
