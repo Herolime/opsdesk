@@ -8,32 +8,51 @@ Enterprise IT & Operations Service Desk platform built with **.NET 10**, **Clean
 
 ```mermaid
 flowchart TD
-    Web["OpsDesk.Web (Interactive Blazor + MudBlazor)"] --> App["OpsDesk.Application (MediatR CQRS + FluentValidation)"]
+    Web["OpsDesk.Web (Interactive Blazor + MudBlazor)"] --> App["OpsDesk.Application (Entities, DTOs, MediatR CQRS, FluentValidation)"]
+    Web --> Infra["OpsDesk.Infrastructure"]
+    Web --> Common["OpsDesk.Common (PagedResponse, RichTextContentHelper)"]
     Api["OpsDesk.Api (ASP.NET Core REST + OpenAPI)"] --> App
-    Api --> Data["OpsDesk.Data (Dapper + SQLite)"]
-    Web --> Data
-    Data --> App
-    App --> Domain["OpsDesk.Domain (DDD Aggregates, Value Objects, Events)"]
+    Api --> Infra["OpsDesk.Infrastructure (Dapper + SQLite, SLA Calculator, Mock/SMTP Email)"]
+    Api --> Common
+    Infra --> App
+    Infra --> Common
+    App --> Common
     Tests["OpsDesk.IntegrationTests (xUnit + WebApplicationFactory)"] --> Api
 ```
 
+### Unified Ticket State Machine
+
+All service requests are managed through a single unified `Ticket` entity (`OPS-2041`) across its full lifecycle:
+
+```mermaid
+stateDiagram-v2
+    [*] --> Open: Requester Submits Ticket
+    Open --> ReturnedToRequester: Triage Returns with Feedback
+    ReturnedToRequester --> Open: Requester Edits & Resubmits
+    Open --> InProgress: Triage Validates & Assigns Specialist
+    InProgress --> ReturnedToRequester: Specialist Requests Clarification
+    InProgress --> PendingApproval: Specialist Submits Technical Analysis (RTE)
+    PendingApproval --> InProgress: Operations Lead Returns with Feedback
+    PendingApproval --> Resolved: Operations Lead Approves & Closes
+    Resolved --> InProgress: Reopen Ticket
+```
+
 ### Key Patterns & Design Highlights
-- **Domain-Driven Design (`OpsDesk.Domain`)**:
-  - `ServiceTicket` aggregate root enforcing lifecycle invariants (status transitions, specialist assignment, internal notes, technical reviews, and cross-team escalations).
-  - Immutable Value Objects: `TicketId` (`OPS-2041`), `RequesterInfo`, and `SlaWindow` (business-day SLA calculation: `Urgent` = 1 day, `High` = 3 days, `Standard` = 7 days).
-  - Strongly typed Domain Events (`TicketSubmittedEvent`, `TicketAssignedEvent`, `TicketStatusChangedEvent`, `TicketEscalatedEvent`).
-- **CQRS & Validation Pipeline (`OpsDesk.Application`)**:
-  - Command/Query separation via **MediatR**.
-  - Cross-cutting `ValidationBehavior<TRequest, TResponse>` powered by **FluentValidation**.
-- **Split Read/Write Persistence (`OpsDesk.Data`)**:
-  - Aggregate write persistence (`TicketRepository`) paired with optimized Dapper read projections (`TicketQueryRepository`) over SQLite.
-  - Automated schema initialization and demo seed data (`SchemaInitializer`).
-- **MudBlazor UI (`OpsDesk.Web`)**:
+- **Unified Domain & CQRS Pipeline (`OpsDesk.Application` & `OpsDesk.Common`)**:
+  - Single `Ticket` entity enforcing lifecycle transitions (`Open`, `ReturnedToRequester`, `InProgress`, `PendingApproval`, `Resolved`), specialist assignment, threaded messages, internal notes, technical reviews, and cross-team escalations.
+  - Command/Query separation via **MediatR** paired with a cross-cutting `ValidationBehavior<TRequest, TResponse>` powered by **FluentValidation**.
+  - Shared utilities (`PagedResponse<T>`, `RichTextContentHelper`) in `OpsDesk.Common`.
+- **Infrastructure, SLA Engine & Mock/Fake SMTP (`OpsDesk.Infrastructure`)**:
+  - Split write (`TicketRepository`) and Dapper read (`TicketQueryRepository`) repositories plus persisted `NotificationRepository` over SQLite.
+  - Single consolidated database schema & synthetic seed baseline (`OpsDeskSchemaBaseline`).
+  - `BusinessDaySlaCalculator` computing business-day SLA deadlines (`Urgent` = 1 business day, `High` = 3 business days, `Standard` = 7 business days).
+  - `SmtpEmailService` + `EmailSettings` with a zero-dependency default **`Mock`** profile alongside preconfigured **`Mailpit` / `Papercut`** (`localhost:1025`) and **`Ethereal`** (`smtp.ethereal.email:587`) fake SMTP profiles.
+- **MudBlazor UI & Role-Based Access (`OpsDesk.Web`)**:
   - Dark-mode **Obsidian & Emerald** `MudTheme` (`#0F172A` surface, `#10B981` primary accent, `ROUND_EIGHT` geometry).
-  - Live **Persona Switcher** (`Operations Lead`, `Triage Lead`, `Specialist`, `Requester`, `System Admin`) in the top bar.
-  - 9 operational views: Overview Dashboard, My Requests, Submit Service Request (with live SLA & routing preview), Split-Pane Triage Queue, Ticket Detail Workspace, All Tickets Directory, Reports & SLA Analytics, Admin & Role Management, and Notification Center.
+  - Live **Persona Switcher** (`Operations Lead`, `Triage Lead`, `Specialist`, `Requester`, `System Admin`) persisted in `localStorage`, paired with `<RoleGuard>` view restrictions and role-filtered navigation.
+  - **Quill Rich Text Editor** (`RichTextEditor.razor` + collocated ES module) in the Technical Review workspace, plus `ReturnWithFeedbackDialog` and `TicketClosureDialog` workflow modals.
 - **End-to-End Integration Testing (`OpsDesk.IntegrationTests`)**:
-  - Isolated SQLite `WebApplicationFactory<Program>` tests covering the full ticket lifecycle from submission through SLA calculation, triage, assignment, collaboration, technical review, escalation, resolution, and analytics reporting.
+  - Isolated SQLite `WebApplicationFactory<Program>` tests verifying submission, business-day SLA calculation, return-to-requester & resubmission, triage routing, specialist assignment, Quill HTML technical review, leader approval & return-to-progress loops, formal resolution, notifications, and analytics reporting.
 
 ---
 
