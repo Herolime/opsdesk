@@ -58,6 +58,25 @@ The UI was designed in **Google Stitch** using the **OpsDesk — Obsidian & Emer
 
 ---
 
+## Web UI Screenshots
+
+### Operations Overview Dashboard
+![Operations Overview Dashboard](docs/screenshots/overview.png)
+
+### Submit Service Request
+![Submit Service Request](docs/screenshots/submit-request.png)
+
+### Triage Queue & Assignment
+![Triage Queue and Assignment](docs/screenshots/triage-queue.png)
+
+### Ticket Detail & Collaboration Workspace
+![Ticket Detail Workspace](docs/screenshots/ticket-detail.png)
+
+### Reports & SLA Analytics
+![Reports and SLA Analytics](docs/screenshots/reports-sla.png)
+
+---
+
 ## Getting Started
 
 ### Prerequisites

@@ -5,6 +5,7 @@ using OpsDesk.Web.Components;
 using OpsDesk.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.WebHost.UseStaticWebAssets();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? "Data Source=opsdesk.db";
