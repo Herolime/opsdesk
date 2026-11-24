@@ -80,7 +80,7 @@ The UI was designed in **Google Stitch** using the **OpsDesk — Obsidian & Emer
 ## Web UI Screenshots
 
 ### Operations Overview Dashboard
-![Operations Overview Dashboard](docs/screenshots/overview.png)
+![Operations Overview Dashboard](docs/screenshots/operations-overview.png)
 
 ### Submit Service Request
 ![Submit Service Request](docs/screenshots/submit-request.png)
