@@ -5,6 +5,7 @@
 
 <PageTitle>All Tickets Directory — OpsDesk</PageTitle>
 
+<RoleGuard AllowedRoles="StaffRoles">
 <MudStack Spacing="5">
     <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="flex-wrap gap-3">
         <div>
@@ -112,8 +113,17 @@
         </MudTable>
     </MudPaper>
 </MudStack>
+</RoleGuard>
 
 @code {
+    private static readonly WorkspaceRole[] StaffRoles =
+    [
+        WorkspaceRole.Specialist,
+        WorkspaceRole.TriageLead,
+        WorkspaceRole.OperationsLead,
+        WorkspaceRole.Admin
+    ];
+
     [SupplyParameterFromQuery(Name = "search")] public string? QuerySearch { get; set; }
 
     private string _search = string.Empty;

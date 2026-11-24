@@ -16,6 +16,7 @@ builder.Services.AddMudServices();
 builder.Services.AddApplication();
 builder.Services.AddData(connectionString);
 builder.Services.AddScoped<RoleState>();
+builder.Services.AddScoped<NotificationState>();
 
 var app = builder.Build();
 

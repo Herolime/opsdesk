@@ -3,6 +3,7 @@
 
 <PageTitle>Admin &amp; Role Management — OpsDesk</PageTitle>
 
+<RoleGuard AllowedRoles="AdminOnly">
 <MudStack Spacing="5">
     <div>
         <MudText Typo="Typo.h4">Admin &amp; Role Management</MudText>
@@ -83,8 +84,11 @@
         </MudTabs>
     </MudPaper>
 </MudStack>
+</RoleGuard>
 
 @code {
+    private static readonly WorkspaceRole[] AdminOnly = [WorkspaceRole.Admin];
+
     private List<StreamSpecialistMappingDto> _mappings = new();
 
     private readonly List<TeamMemberRow> _members =

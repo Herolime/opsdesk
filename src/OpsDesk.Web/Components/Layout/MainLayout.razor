@@ -1,6 +1,8 @@
 @inherits LayoutComponentBase
 @implements IDisposable
 @inject RoleState RoleState
+@inject NotificationState NotificationState
+@inject IMediator Mediator
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
 
@@ -23,16 +25,19 @@
 
         <MudSpacer />
 
-        <MudTextField T="string"
-                      @bind-Value="_searchText"
-                      Placeholder="Search tickets, IDs, or assignees..."
-                      Adornment="Adornment.Start"
-                      AdornmentIcon="@Icons.Material.Filled.Search"
-                      Variant="Variant.Outlined"
-                      Margin="Margin.Dense"
-                      OnKeyDown="HandleSearchKeyDown"
-                      Class="mx-4 d-none d-md-flex ops-search-input"
-                      Style="max-width: 320px; background-color: #0F172A;" />
+        @if (RoleState.IsOperationalStaff)
+        {
+            <MudTextField T="string"
+                          @bind-Value="_searchText"
+                          Placeholder="Search tickets, IDs, or assignees..."
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          OnKeyDown="HandleSearchKeyDown"
+                          Class="mx-4 d-none d-md-flex ops-search-input"
+                          Style="max-width: 320px; background-color: #0F172A;" />
+        }
 
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mr-3 px-2 py-1"
                   Style="background: #1E293B; border-radius: 8px; border: 1px solid #334155;">
@@ -54,13 +59,82 @@
             </MudSelect>
         </MudStack>
 
-        <MudBadge Content="5" Color="Color.Error" Overlap="true" Class="mr-2">
-            <MudIconButton Icon="@Icons.Material.Filled.Notifications" Color="Color.Inherit" Href="/notifications" />
-        </MudBadge>
+        <MudMenu AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Dense="true" MaxHeight="420">
+            <ActivatorContent>
+                <MudBadge Content="@NotificationState.UnreadCount"
+                          Visible="@(NotificationState.UnreadCount > 0)"
+                          Color="Color.Error"
+                          Overlap="true"
+                          Class="mr-2">
+                    <MudIconButton Icon="@Icons.Material.Filled.Notifications"
+                                   Color="Color.Inherit"
+                                   aria-label="Notifications"
+                                   OnClick="@context.ToggleAsync" />
+                </MudBadge>
+            </ActivatorContent>
+            <ChildContent>
+                <div class="px-4 py-2 d-flex align-center justify-space-between" style="min-width: 320px;">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                        <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">Notifications</MudText>
+                        @if (NotificationState.UnreadCount > 0)
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Error" Variant="Variant.Outlined" Style="height: 20px; font-size: 0.7rem;">
+                                @NotificationState.UnreadCount unread
+                            </MudChip>
+                        }
+                    </MudStack>
+                    <MudButton Size="Size.Small"
+                               Variant="Variant.Text"
+                               Color="Color.Primary"
+                               Disabled="@(NotificationState.UnreadCount == 0)"
+                               OnClick="@(() => NotificationState.MarkAllRead())">
+                        Mark all read
+                    </MudButton>
+                </div>
+                <MudDivider />
+                @if (NotificationState.Alerts.Count == 0)
+                {
+                    <div class="px-4 py-4 text-center">
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">You're all caught up.</MudText>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var alert in NotificationState.Alerts.Take(5))
+                    {
+                        <MudMenuItem OnClick="@(() => OpenAlert(alert))">
+                            <MudStack Row="true" AlignItems="AlignItems.Start" Spacing="2" Style="max-width: 300px;">
+                                <MudIcon Icon="@alert.Icon" Color="alert.Color" Size="Size.Small" Class="mt-1" />
+                                <div style="min-width: 0; flex: 1;">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Spacing="1">
+                                        <MudText Typo="Typo.body2" Style="@(alert.IsRead ? "font-weight: 400;" : "font-weight: 600;")">
+                                            @alert.Title
+                                        </MudText>
+                                        <MudText Typo="Typo.caption" Class="ops-mono" Color="Color.Primary">@alert.TicketId</MudText>
+                                    </MudStack>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary"
+                                             Style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: normal;">
+                                        @alert.Message
+                                    </MudText>
+                                </div>
+                                @if (!alert.IsRead)
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.Circle" Color="Color.Primary" Style="font-size: 8px; margin-top: 6px;" />
+                                }
+                            </MudStack>
+                        </MudMenuItem>
+                    }
+                }
+                <MudDivider />
+                <MudMenuItem Icon="@Icons.Material.Filled.NotificationsActive" Href="/notifications">
+                    View all notifications
+                </MudMenuItem>
+            </ChildContent>
+        </MudMenu>
 
         <MudMenu AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Dense="true">
             <ActivatorContent>
-                <MudButton Variant="Variant.Text" Color="Color.Inherit" Class="px-2">
+                <MudButton Variant="Variant.Text" Color="Color.Inherit" Class="px-2" OnClick="@context.ToggleAsync">
                     <MudAvatar Color="Color.Primary" Size="Size.Small" Class="mr-2" Style="color: #042F2E; font-weight: 700;">
                         @RoleState.CurrentInitials
                     </MudAvatar>
@@ -72,14 +146,24 @@
                 </MudButton>
             </ActivatorContent>
             <ChildContent>
-                <div class="px-4 py-2">
-                    <MudText Typo="Typo.subtitle2">@RoleState.CurrentDisplayName</MudText>
+                <div class="px-4 py-2" style="min-width: 220px;">
+                    <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">@RoleState.CurrentDisplayName</MudText>
                     <MudText Typo="Typo.caption" Color="Color.Secondary">@RoleState.CurrentEmail</MudText>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mt-1">
+                        <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined" Style="height: 20px; font-size: 0.7rem;">
+                            @RoleState.CurrentRoleName
+                        </MudChip>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@RoleState.CurrentDepartment</MudText>
+                    </MudStack>
                 </div>
                 <MudDivider />
                 <MudMenuItem Icon="@Icons.Material.Filled.Person" Href="/my-requests">My Requests</MudMenuItem>
+                <MudMenuItem Icon="@Icons.Material.Filled.PostAdd" Href="/submit">Submit Request</MudMenuItem>
                 <MudMenuItem Icon="@Icons.Material.Filled.Notifications" Href="/notifications">Notification Center</MudMenuItem>
-                <MudMenuItem Icon="@Icons.Material.Filled.AdminPanelSettings" Href="/admin/roles">Admin &amp; Roles</MudMenuItem>
+                @if (RoleState.CanAccessAdmin)
+                {
+                    <MudMenuItem Icon="@Icons.Material.Filled.AdminPanelSettings" Href="/admin/roles">Admin &amp; Roles</MudMenuItem>
+                }
             </ChildContent>
         </MudMenu>
     </MudAppBar>
@@ -99,14 +183,39 @@
     private string? _searchText;
     private readonly MudTheme _theme = OpsDeskTheme.CreateTheme();
 
-    protected override void OnInitialized() => RoleState.OnChange += StateHasChanged;
+    protected override async Task OnInitializedAsync()
+    {
+        RoleState.OnChange += StateHasChanged;
+        NotificationState.OnChange += StateHasChanged;
+        await NotificationState.EnsureLoadedAsync(Mediator);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await RoleState.InitializeAsync();
+        }
+    }
 
     private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
 
-    private void OnRoleChanged(WorkspaceRole newRole)
+    private async Task OnRoleChanged(WorkspaceRole newRole)
     {
-        RoleState.SetRole(newRole);
+        await RoleState.SetRoleAsync(newRole);
         Snackbar.Add($"Switched active persona to {RoleState.CurrentDisplayName} ({RoleState.CurrentRoleName})", Severity.Info);
+
+        var relativePath = Navigation.ToBaseRelativePath(Navigation.Uri);
+        if (newRole == WorkspaceRole.Requester && string.IsNullOrEmpty(relativePath))
+        {
+            Navigation.NavigateTo("/my-requests");
+        }
+    }
+
+    private void OpenAlert(NotificationItem alert)
+    {
+        NotificationState.MarkAsRead(alert);
+        Navigation.NavigateTo($"/tickets/{alert.TicketId}");
     }
 
     private void HandleSearchKeyDown(KeyboardEventArgs e)
@@ -117,5 +226,9 @@
         }
     }
 
-    public void Dispose() => RoleState.OnChange -= StateHasChanged;
+    public void Dispose()
+    {
+        RoleState.OnChange -= StateHasChanged;
+        NotificationState.OnChange -= StateHasChanged;
+    }
 }

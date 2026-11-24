@@ -4,6 +4,7 @@
 
 <PageTitle>Operations Overview — OpsDesk</PageTitle>
 
+<RoleGuard AllowedRoles="StaffRoles">
 <MudStack Spacing="6">
     <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="flex-wrap gap-3">
         <div>
@@ -174,8 +175,17 @@
         </MudPaper>
     }
 </MudStack>
+</RoleGuard>
 
 @code {
+    private static readonly WorkspaceRole[] StaffRoles =
+    [
+        WorkspaceRole.Specialist,
+        WorkspaceRole.TriageLead,
+        WorkspaceRole.OperationsLead,
+        WorkspaceRole.Admin
+    ];
+
     private bool _loading = true;
     private ReportSummaryDto? _summary;
     private List<TicketSummaryDto> _watchlist = new();

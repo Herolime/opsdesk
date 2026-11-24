@@ -19,9 +19,12 @@
         </MudText>
     </div>
 
-    <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">
-        Overview
-    </MudNavLink>
+    @if (RoleState.IsOperationalStaff)
+    {
+        <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">
+            Overview
+        </MudNavLink>
+    }
 
     <MudNavLink Href="/my-requests" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.PersonOutline">
         My Requests
@@ -31,13 +34,19 @@
         Submit Request
     </MudNavLink>
 
-    <MudNavLink Href="/triage" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.FilterList">
-        Triage Queue
-    </MudNavLink>
+    @if (RoleState.CanAccessTriage)
+    {
+        <MudNavLink Href="/triage" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.FilterList">
+            Triage Queue
+        </MudNavLink>
+    }
 
-    <MudNavLink Href="/tickets" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.ListAlt">
-        All Tickets
-    </MudNavLink>
+    @if (RoleState.CanAccessAllTickets)
+    {
+        <MudNavLink Href="/tickets" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.ListAlt">
+            All Tickets
+        </MudNavLink>
+    }
 
     <MudDivider Class="my-3" />
 
@@ -47,17 +56,23 @@
         </MudText>
     </div>
 
-    <MudNavLink Href="/reports" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.BarChart">
-        Reports &amp; SLA
-    </MudNavLink>
+    @if (RoleState.CanAccessReports)
+    {
+        <MudNavLink Href="/reports" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.BarChart">
+            Reports &amp; SLA
+        </MudNavLink>
+    }
 
     <MudNavLink Href="/notifications" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.NotificationsNone">
         Notification Center
     </MudNavLink>
 
-    <MudNavLink Href="/admin/roles" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.AdminPanelSettings">
-        Admin &amp; Roles
-    </MudNavLink>
+    @if (RoleState.CanAccessAdmin)
+    {
+        <MudNavLink Href="/admin/roles" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.AdminPanelSettings">
+            Admin &amp; Roles
+        </MudNavLink>
+    }
 </MudNavMenu>
 
 <MudSpacer />

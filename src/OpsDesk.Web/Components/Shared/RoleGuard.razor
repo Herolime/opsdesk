@@ -1,0 +1,38 @@
+@implements IDisposable
+@inject RoleState RoleState
+@inject NavigationManager Navigation
+
+@if (IsAuthorized)
+{
+    @ChildContent
+}
+else
+{
+    <MudPaper Class="pa-8 ops-card text-center" Elevation="0" Style="max-width: 560px; margin: 2rem auto;">
+        <MudIcon Icon="@Icons.Material.Filled.Lock" Color="Color.Warning" Size="Size.Large" />
+        <MudText Typo="Typo.h5" Class="mt-3">Access Restricted</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-2 mb-4">
+            Your active persona (<strong style="color: #F8FAFC;">@RoleState.CurrentRoleName</strong>) does not have permission to view this page.
+            Required role: <strong style="color: #10B981;">@string.Join(", ", AllowedRoles)</strong>.
+        </MudText>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   OnClick="@(() => Navigation.NavigateTo(RoleState.DefaultRoute))"
+                   Style="color: #042F2E; font-weight: 700;">
+            Go to My Workspace
+        </MudButton>
+    </MudPaper>
+}
+
+@code {
+    [Parameter, EditorRequired] public WorkspaceRole[] AllowedRoles { get; set; } = [];
+    [Parameter, EditorRequired] public RenderFragment ChildContent { get; set; } = default!;
+
+    private bool IsAuthorized => RoleState.IsInRole(AllowedRoles);
+
+    protected override void OnInitialized() => RoleState.OnChange += HandleRoleChanged;
+
+    private void HandleRoleChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => RoleState.OnChange -= HandleRoleChanged;
+}

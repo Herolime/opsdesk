@@ -1,12 +1,38 @@
+using Microsoft.JSInterop;
 using OpsDesk.Domain.Enums;
 
 namespace OpsDesk.Web.Services;
 
 public sealed class RoleState
 {
+    private const string StorageKey = "opsdesk_active_role";
+    private readonly IJSRuntime _js;
+    private bool _initialized;
+
+    public RoleState(IJSRuntime js) => _js = js;
+
     public WorkspaceRole CurrentRole { get; private set; } = WorkspaceRole.OperationsLead;
 
     public event Action? OnChange;
+
+    public async Task InitializeAsync()
+    {
+        if (_initialized) return;
+        _initialized = true;
+        try
+        {
+            var saved = await _js.InvokeAsync<string?>("localStorage.getItem", StorageKey);
+            if (!string.IsNullOrWhiteSpace(saved) && Enum.TryParse<WorkspaceRole>(saved, true, out var parsed) && parsed != CurrentRole)
+            {
+                CurrentRole = parsed;
+                OnChange?.Invoke();
+            }
+        }
+        catch
+        {
+            // Ignore JS interop errors during prerendering or unsupported hosts
+        }
+    }
 
     public void SetRole(WorkspaceRole role)
     {
@@ -16,6 +42,40 @@ public sealed class RoleState
             OnChange?.Invoke();
         }
     }
+
+    public async Task SetRoleAsync(WorkspaceRole role)
+    {
+        SetRole(role);
+        try
+        {
+            await _js.InvokeVoidAsync("localStorage.setItem", StorageKey, role.ToString());
+        }
+        catch
+        {
+            // Ignore JS interop errors
+        }
+    }
+
+    public bool IsInRole(params WorkspaceRole[] roles) => roles.Contains(CurrentRole);
+
+    public bool IsOperationalStaff => CurrentRole is
+        WorkspaceRole.Specialist or
+        WorkspaceRole.TriageLead or
+        WorkspaceRole.OperationsLead or
+        WorkspaceRole.Admin;
+
+    public bool CanAccessTriage => CurrentRole is
+        WorkspaceRole.TriageLead or
+        WorkspaceRole.OperationsLead or
+        WorkspaceRole.Admin;
+
+    public bool CanAccessReports => IsOperationalStaff;
+
+    public bool CanAccessAllTickets => IsOperationalStaff;
+
+    public bool CanAccessAdmin => CurrentRole is WorkspaceRole.Admin;
+
+    public string DefaultRoute => CurrentRole == WorkspaceRole.Requester ? "/my-requests" : "/";
 
     public string CurrentRoleName => CurrentRole switch
     {

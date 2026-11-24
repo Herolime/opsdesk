@@ -1,6 +1,8 @@
 @page "/tickets/{Id}"
+@implements IDisposable
 @inject IMediator Mediator
 @inject RoleState RoleState
+@inject NavigationManager Navigation
 @inject ISnackbar Snackbar
 
 <PageTitle>@Id — OpsDesk Workspace</PageTitle>
@@ -12,6 +14,20 @@
 else if (_ticket is null)
 {
     <MudAlert Severity="Severity.Error" Variant="Variant.Outlined">Ticket <strong>@Id</strong> was not found.</MudAlert>
+}
+else if (RoleState.CurrentRole == WorkspaceRole.Requester && !string.Equals(_ticket.RequesterEmail, RoleState.CurrentEmail, StringComparison.OrdinalIgnoreCase))
+{
+    <MudPaper Class="pa-8 ops-card text-center" Elevation="0" Style="max-width: 560px; margin: 2rem auto;">
+        <MudIcon Icon="@Icons.Material.Filled.Lock" Color="Color.Warning" Size="Size.Large" />
+        <MudText Typo="Typo.h5" Class="mt-3">Access Restricted</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-2 mb-4">
+            Requesters can only view their own submitted service requests.
+        </MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => Navigation.NavigateTo("/my-requests"))"
+                   Style="color: #042F2E; font-weight: 700;">
+            Go to My Requests
+        </MudButton>
+    </MudPaper>
 }
 else
 {
@@ -32,24 +48,27 @@ else
                     <MudText Typo="Typo.h5">@_ticket.Title</MudText>
                 </div>
 
-                <MudStack Row="true" Spacing="2">
-                    @if (_ticket.Status != "Resolved")
-                    {
-                        <MudButton Variant="Variant.Outlined" Color="Color.Warning" OnClick="@(() => UpdateStatusAsync(TicketStatus.PendingReview))">
-                            Submit for Review
-                        </MudButton>
-                        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => UpdateStatusAsync(TicketStatus.Resolved))"
-                                   Style="color: #042F2E; font-weight: 700;">
-                            Resolve Ticket
-                        </MudButton>
-                    }
-                    else
-                    {
-                        <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="@(() => UpdateStatusAsync(TicketStatus.InProgress))">
-                            Reopen Ticket
-                        </MudButton>
-                    }
-                </MudStack>
+                @if (RoleState.IsOperationalStaff)
+                {
+                    <MudStack Row="true" Spacing="2">
+                        @if (_ticket.Status != "Resolved")
+                        {
+                            <MudButton Variant="Variant.Outlined" Color="Color.Warning" OnClick="@(() => UpdateStatusAsync(TicketStatus.PendingReview))">
+                                Submit for Review
+                            </MudButton>
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => UpdateStatusAsync(TicketStatus.Resolved))"
+                                       Style="color: #042F2E; font-weight: 700;">
+                                Resolve Ticket
+                            </MudButton>
+                        }
+                        else
+                        {
+                            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="@(() => UpdateStatusAsync(TicketStatus.InProgress))">
+                                Reopen Ticket
+                            </MudButton>
+                        }
+                    </MudStack>
+                }
             </MudStack>
         </MudPaper>
 
@@ -90,7 +109,9 @@ else
                             </MudStack>
                         </MudTabPanel>
 
-                        <MudTabPanel Text="Technical Review" Icon="@Icons.Material.Filled.Engineering">
+                        @if (RoleState.IsOperationalStaff)
+                        {
+                            <MudTabPanel Text="Technical Review" Icon="@Icons.Material.Filled.Engineering">
                             <MudStack Spacing="3">
                                 <MudTextField T="string" @bind-Value="_archRef" Label="Architecture / RFC Reference" Variant="Variant.Outlined" />
                                 <MudTextField T="string" @bind-Value="_techAnalysis" Label="Technical Analysis" Lines="3" Variant="Variant.Outlined" />
@@ -148,6 +169,7 @@ else
                                 </MudStack>
                             </MudStack>
                         </MudTabPanel>
+                        }
                     </MudTabs>
                 </MudPaper>
             </MudItem>
@@ -193,13 +215,23 @@ else
                                     <MudText Typo="Typo.body2">@_ticket.RequesterName</MudText>
                                 </MudStack>
                                 <MudDivider Class="my-1" />
-                                <MudSelect T="string" Value="@(_ticket.AssignedSpecialist ?? "")" ValueChanged="ReassignAsync"
-                                           Label="Assigned Specialist" Variant="Variant.Outlined" Margin="Margin.Dense">
-                                    <MudSelectItem Value="@("Maya Lin")">Maya Lin</MudSelectItem>
-                                    <MudSelectItem Value="@("Devon Brooks")">Devon Brooks</MudSelectItem>
-                                    <MudSelectItem Value="@("Samira Patel")">Samira Patel</MudSelectItem>
-                                    <MudSelectItem Value="@("Lucas Vance")">Lucas Vance</MudSelectItem>
-                                </MudSelect>
+                                @if (RoleState.IsOperationalStaff)
+                                {
+                                    <MudSelect T="string" Value="@(_ticket.AssignedSpecialist ?? "")" ValueChanged="ReassignAsync"
+                                               Label="Assigned Specialist" Variant="Variant.Outlined" Margin="Margin.Dense">
+                                        <MudSelectItem Value="@("Maya Lin")">Maya Lin</MudSelectItem>
+                                        <MudSelectItem Value="@("Devon Brooks")">Devon Brooks</MudSelectItem>
+                                        <MudSelectItem Value="@("Samira Patel")">Samira Patel</MudSelectItem>
+                                        <MudSelectItem Value="@("Lucas Vance")">Lucas Vance</MudSelectItem>
+                                    </MudSelect>
+                                }
+                                else
+                                {
+                                    <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">Assigned Specialist</MudText>
+                                        <MudText Typo="Typo.body2">@(_ticket.AssignedSpecialist ?? "Pending Triage")</MudText>
+                                    </MudStack>
+                                }
                             </MudStack>
                         </MudCardContent>
                     </MudCard>
@@ -235,6 +267,12 @@ else
     private string? _resSummary;
     private string? _escalatedTeam;
     private string? _escalationReason;
+
+    protected override void OnInitialized() => RoleState.OnChange += HandleRoleChanged;
+
+    private void HandleRoleChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => RoleState.OnChange -= HandleRoleChanged;
 
     protected override async Task OnParametersSetAsync() => await LoadTicketAsync();
 

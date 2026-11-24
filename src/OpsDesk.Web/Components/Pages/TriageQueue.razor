@@ -5,6 +5,7 @@
 
 <PageTitle>Triage Queue &amp; Assignment — OpsDesk</PageTitle>
 
+<RoleGuard AllowedRoles="TriageRoles">
 <MudStack Spacing="5">
     <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="flex-wrap gap-3">
         <div>
@@ -128,8 +129,16 @@
         </MudGrid>
     }
 </MudStack>
+</RoleGuard>
 
 @code {
+    private static readonly WorkspaceRole[] TriageRoles =
+    [
+        WorkspaceRole.TriageLead,
+        WorkspaceRole.OperationsLead,
+        WorkspaceRole.Admin
+    ];
+
     private bool _loading = true;
     private List<TriageTicketDto> _queue = new();
     private TriageTicketDto? _selected;
