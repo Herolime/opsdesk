@@ -1,0 +1,31 @@
+# .NET / Visual Studio / Rider / VS Code
+bin/
+obj/
+out/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+.idea/
+.vscode/
+*.swp
+
+# Build & Test Artifacts
+TestResults/
+coverage/
+*.trx
+*.coverage
+*.coveragexml
+
+# Databases & Local Secrets
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+appsettings.Local.json
+.env
+
+# OS files
+.DS_Store
+Thumbs.db
