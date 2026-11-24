@@ -40,3 +40,73 @@ html, body {
 .ops-search-input .mud-input-slot {
     color: #F8FAFC !important;
 }
+
+/* Quill Rich Text Editor — Obsidian & Emerald Dark Theme */
+.quill-custom-wrapper {
+    background-color: #0F172A;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    overflow: hidden;
+    transition: border-color 0.15s ease;
+}
+
+.quill-custom-wrapper:focus-within {
+    border-color: #10B981;
+}
+
+.quill-custom-toolbar.ql-toolbar.ql-snow {
+    background-color: #1E293B;
+    border: none;
+    border-bottom: 1px solid #334155;
+    padding: 6px 10px;
+}
+
+.quill-custom-toolbar .ql-stroke {
+    stroke: #94A3B8 !important;
+}
+
+.quill-custom-toolbar .ql-fill {
+    fill: #94A3B8 !important;
+}
+
+.quill-custom-toolbar .ql-picker {
+    color: #94A3B8 !important;
+}
+
+.quill-custom-toolbar button:hover .ql-stroke,
+.quill-custom-toolbar button.ql-active .ql-stroke {
+    stroke: #10B981 !important;
+}
+
+.quill-custom-toolbar button:hover .ql-fill,
+.quill-custom-toolbar button.ql-active .ql-fill {
+    fill: #10B981 !important;
+}
+
+.quill-custom-wrapper .ql-container.ql-snow {
+    border: none;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-size: 0.875rem;
+    color: #F8FAFC;
+}
+
+.quill-custom-wrapper .ql-editor.ql-blank::before {
+    color: #64748B;
+    font-style: normal;
+}
+
+.ops-rte-compact .ql-editor {
+    min-height: 96px;
+}
+
+.ops-rte-large .ql-editor {
+    min-height: 170px;
+}
+
+.quill-custom-wrapper .ql-editor pre.ql-syntax {
+    background-color: #0B1120;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    color: #E2E8F0;
+    font-family: 'JetBrains Mono', monospace;
+}

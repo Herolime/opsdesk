@@ -112,11 +112,43 @@ else
                         @if (RoleState.IsOperationalStaff)
                         {
                             <MudTabPanel Text="Technical Review" Icon="@Icons.Material.Filled.Engineering">
-                            <MudStack Spacing="3">
-                                <MudTextField T="string" @bind-Value="_archRef" Label="Architecture / RFC Reference" Variant="Variant.Outlined" />
-                                <MudTextField T="string" @bind-Value="_techAnalysis" Label="Technical Analysis" Lines="3" Variant="Variant.Outlined" />
-                                <MudTextField T="string" @bind-Value="_opRisks" Label="Operational Risks" Lines="2" Variant="Variant.Outlined" />
-                                <MudTextField T="string" @bind-Value="_resSummary" Label="Resolution Summary" Lines="2" Variant="Variant.Outlined" />
+                            <MudStack Spacing="4">
+                                <MudTextField T="string" @bind-Value="_archRef" Label="Architecture / RFC Reference"
+                                              Placeholder="e.g., RFC-042, ADR-019, or Runbook URL" Variant="Variant.Outlined" />
+
+                                <div>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1 d-block" Style="font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
+                                        Technical Analysis
+                                    </MudText>
+                                    <RichTextEditor @ref="_techAnalysisEditor"
+                                                    EditorCssClass="ops-rte-large"
+                                                    Content="@(_techAnalysis ?? string.Empty)"
+                                                    Placeholder="Root cause evaluation, architecture impact, and diagnostic findings..."
+                                                    ToolbarContent="@_standardToolbar" />
+                                </div>
+
+                                <div>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1 d-block" Style="font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
+                                        Operational Risks
+                                    </MudText>
+                                    <RichTextEditor @ref="_opRisksEditor"
+                                                    EditorCssClass="ops-rte-compact"
+                                                    Content="@(_opRisks ?? string.Empty)"
+                                                    Placeholder="Blast radius, downtime exposure, or rollback considerations..."
+                                                    ToolbarContent="@_compactToolbar" />
+                                </div>
+
+                                <div>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1 d-block" Style="font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
+                                        Resolution Summary
+                                    </MudText>
+                                    <RichTextEditor @ref="_resSummaryEditor"
+                                                    EditorCssClass="ops-rte-compact"
+                                                    Content="@(_resSummary ?? string.Empty)"
+                                                    Placeholder="Final remediation steps, verification checks, and follow-up actions..."
+                                                    ToolbarContent="@_compactToolbar" />
+                                </div>
+
                                 <MudStack Row="true" Justify="Justify.FlexEnd">
                                     <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveReviewAsync"
                                                Style="color: #042F2E; font-weight: 700;">
@@ -265,8 +297,42 @@ else
     private string? _techAnalysis;
     private string? _opRisks;
     private string? _resSummary;
+    private RichTextEditor? _techAnalysisEditor;
+    private RichTextEditor? _opRisksEditor;
+    private RichTextEditor? _resSummaryEditor;
     private string? _escalatedTeam;
     private string? _escalationReason;
+
+    private static readonly RenderFragment _compactToolbar = @<text>
+        <span class="ql-formats">
+            <button class="ql-bold" title="Bold"></button>
+            <button class="ql-italic" title="Italic"></button>
+            <button class="ql-underline" title="Underline"></button>
+            <button class="ql-code" title="Inline Code"></button>
+        </span>
+        <span class="ql-formats">
+            <button class="ql-list" value="bullet" title="Bullet List"></button>
+            <button class="ql-link" title="Link"></button>
+        </span>
+    </text>;
+
+    private static readonly RenderFragment _standardToolbar = @<text>
+        <span class="ql-formats">
+            <button class="ql-bold" title="Bold"></button>
+            <button class="ql-italic" title="Italic"></button>
+            <button class="ql-underline" title="Underline"></button>
+        </span>
+        <span class="ql-formats">
+            <button class="ql-list" value="bullet" title="Bullet List"></button>
+            <button class="ql-list" value="ordered" title="Numbered List"></button>
+        </span>
+        <span class="ql-formats">
+            <button class="ql-header" value="2" title="Heading"></button>
+            <button class="ql-blockquote" title="Quote"></button>
+            <button class="ql-code-block" title="Code Block"></button>
+            <button class="ql-link" title="Link"></button>
+        </span>
+    </text>;
 
     protected override void OnInitialized() => RoleState.OnChange += HandleRoleChanged;
 
@@ -323,6 +389,10 @@ else
 
     private async Task SaveReviewAsync()
     {
+        if (_techAnalysisEditor is not null) _techAnalysis = await _techAnalysisEditor.GetHTMLAsync();
+        if (_opRisksEditor is not null) _opRisks = await _opRisksEditor.GetHTMLAsync();
+        if (_resSummaryEditor is not null) _resSummary = await _resSummaryEditor.GetHTMLAsync();
+
         await Mediator.Send(new SaveTechnicalReviewCommand
         {
             TicketId = Id,
