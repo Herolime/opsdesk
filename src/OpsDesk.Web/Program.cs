@@ -18,6 +18,7 @@ builder.Services.AddOpsDeskInfrastructure(sp =>
     sp.GetRequiredService<IConfiguration>().GetConnectionString("DefaultConnection")
     ?? "Data Source=opsdesk.db");
 builder.Services.AddScoped<RoleState>();
+builder.Services.AddScoped<NotificationState>();
 
 var app = builder.Build();
 
