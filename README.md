@@ -37,6 +37,27 @@ flowchart TD
 
 ---
 
+## UI Design (Google Stitch)
+
+The UI was designed in **Google Stitch** using the **OpsDesk — Obsidian & Emerald** design system (`#0F172A` dark slate surface, `#10B981` emerald primary accent, `Geist` / `Inter` typography, `ROUND_EIGHT` geometry):
+
+- **Stitch Project**: [OpsDesk (`projects/12928265875133280844`)](https://stitch.withgoogle.com/projects/12928265875133280844)
+- **Design Manifest**: [`.stitch/opsdesk-metadata.json`](.stitch/opsdesk-metadata.json)
+
+| # | Screen | Blazor Route | Stitch Screen |
+|---|---|---|---|
+| 1 | Operations Overview Dashboard | `/` | [View in Stitch](https://stitch.withgoogle.com/projects/12928265875133280844?screen=e9a6ac8fb02a43ad81f1bb60aed60010) |
+| 2 | My Requests — Requester Portal | `/my-requests` | [View in Stitch](https://stitch.withgoogle.com/projects/12928265875133280844?screen=b84dce9dff5d4f5e9d7f252b9c97aec9) |
+| 3 | Submit Service Request | `/submit` | [View in Stitch](https://stitch.withgoogle.com/projects/12928265875133280844?screen=70812d88ca05450e8a17a301b2c5ea38) |
+| 4 | Triage Queue & Assignment | `/triage` | [View in Stitch](https://stitch.withgoogle.com/projects/12928265875133280844?screen=06d26d5ba20e4df38a45a85080ed5d91) |
+| 5 | Ticket Detail & Collaboration Workspace | `/tickets/{id}` | [View in Stitch](https://stitch.withgoogle.com/projects/12928265875133280844?screen=b62e87c1e9714e0ca7984f62fa9a008b) |
+| 6 | All Tickets Directory | `/tickets` | [View in Stitch](https://stitch.withgoogle.com/projects/12928265875133280844?screen=5d7b21c8d1844c7c8f950b5f9003e676) |
+| 7 | Reports & SLA Analytics | `/reports` | [View in Stitch](https://stitch.withgoogle.com/projects/12928265875133280844?screen=8495a52d210945de8adaad6893d3f11b) |
+| 8 | Admin & Role Management | `/admin/roles` | [View in Stitch](https://stitch.withgoogle.com/projects/12928265875133280844?screen=7a30863fafcf478cafd25f0a080d0221) |
+| 9 | Notification Center | `/notifications` | [View in Stitch](https://stitch.withgoogle.com/projects/12928265875133280844?screen=1ac96bbb186544d590a6149715fb7ed0) |
+
+---
+
 ## Getting Started
 
 ### Prerequisites
